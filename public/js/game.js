@@ -9,7 +9,20 @@ if (!roomCode || isNaN(myPlayerId)) {
 }
 
 let supabaseClient = null;
+let roomChannel = null;
 let currentPlayers = []; 
+
+function sendClientBroadcast(eventType, payloadData) {
+  try {
+    if (roomChannel) {
+      roomChannel.send({
+        type: 'broadcast',
+        event: eventType,
+        payload: { type: eventType, ...payloadData }
+      });
+    }
+  } catch (e) { /* Hata yokmuş gibi devam et */ }
+}
 let currentHostId = null;
 let currentQuestionAnswers = [];
 let hasAnswered = false;
@@ -107,6 +120,7 @@ window.changeQuestionCount = async function(delta) {
   val = Math.max(3, Math.min(20, val));
   el.textContent = val;
   lastSettingUpdateTime = Date.now();
+  sendClientBroadcast('settings_updated', { settings: { questionCount: val } });
 
   if (updateSettingsTimeout) clearTimeout(updateSettingsTimeout);
   updateSettingsTimeout = setTimeout(async () => {
@@ -164,6 +178,14 @@ window.submitAnswer = async function(answer) {
     answer,
     totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
   });
+  sendClientBroadcast('player_answered', {
+    playerId: Number(myPlayerId),
+    name: myPlayer.name,
+    color: myPlayer.color,
+    answer,
+    questionId: currentQuestionId,
+    totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
+  });
 
   // ── OPTIMISTIC UI: Veritabanı HTTP yanıtını BEKLEMEDEN anında sonuçları yansıt! ──
   triggerOptimisticResultsIfNeeded();
@@ -176,6 +198,7 @@ window.submitAnswer = async function(answer) {
     });
     const data = await res.json();
     if (res.ok && data.allAnswered && data.qResults) {
+      sendClientBroadcast('question_results', data.qResults);
       const delay = (currentPlayers.length <= 1) ? 0 : 300;
       setTimeout(() => {
         showResults(data.qResults);
@@ -330,8 +353,10 @@ window.nextQuestion = async function() {
     const data = await res.json();
     if (res.ok) {
       if (data.gameOver && data.results) {
+        sendClientBroadcast('game_ended', data.results);
         showGameEnd(data.results);
       } else if (data.question) {
+        sendClientBroadcast('new_question', data.question);
         showQuestion(data.question);
       }
     }
@@ -407,6 +432,7 @@ window.playAgain = async function() {
     });
     const data = await res.json();
     if (res.ok && data.reset) {
+      sendClientBroadcast('back_to_lobby', data.lobbyData || {});
       // Herkes onayladıysa veya odada tek kişiysek, radyo sinyali beklemeksizin anında lobiye geri uç!
       currentQuestionId = null;
       currentResultQuestionText = null;
@@ -420,6 +446,7 @@ window.playAgain = async function() {
         document.getElementById('question-count').textContent = data.lobbyData.settings.questionCount;
       }
     } else if (res.ok && data.votes !== undefined) {
+      sendClientBroadcast('play_again_update', { votes: data.votes, total: data.total });
       btn.textContent = `${data.votes}/${data.total} Onayladı`;
     } else {
       showError(data.error || 'İşlem gerçekleştirilemedi.');
@@ -448,6 +475,7 @@ window.startGame = async function() {
     });
     const data = await res.json();
     if (res.ok && data.question) {
+      sendClientBroadcast('game_started', { question: data.question });
       showQuestion(data.question);
     } else {
       showError(data.error || 'Oyun başlatılamadı.');
@@ -582,8 +610,9 @@ async function initGame() {
     const config = await configRes.json();
     if (config.url && config.anonKey) {
       supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-      supabaseClient
-        .channel(`room:${roomCode}`)
+      roomChannel = supabaseClient
+        .channel(`room:${roomCode}`, { config: { broadcast: { self: false, ack: false } } });
+      roomChannel
         .on('broadcast', { event: '*' }, (payload) => {
           handleServerMessage(payload.payload);
         })
