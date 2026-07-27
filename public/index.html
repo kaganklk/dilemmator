@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dilemmator — Her seçimin bir bedeli var</title>
+<meta name="description" content="Çok oyunculu ahlaki ikilem oyunu. Arkadaşlarınla odaya katıl, ahlaki ikilemleri cevapla ve kimin daha cani olduğunu öğren.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="glow"></div>
+
+<div class="page">
+
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Çok oyunculu · Ahlaki ikilem
+  </div>
+
+  <div class="title">
+    <span class="title-w">DILEMMA</span><span class="title-r">TOR</span>
+  </div>
+
+  <p class="subtitle">Doğru cevap yok. Sadece seçimler var.</p>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-create" onclick="switchTab('create')">Oda Oluştur</button>
+      <button class="tab" id="tab-join" onclick="switchTab('join')">Oda Gir</button>
+    </div>
+
+    <div class="panel active" id="panel-create">
+      <div class="field">
+        <div class="field-label">İsmin</div>
+        <input class="field-input" id="create-name" type="text" placeholder="Anonim ya da isim yaz..." maxlength="20">
+      </div>
+      <div class="sep"></div>
+      <button class="btn" id="create-btn" onclick="handleCreate()">Oda Oluştur</button>
+    </div>
+
+    <div class="panel" id="panel-join">
+      <div class="field">
+        <div class="field-label">İsmin</div>
+        <input class="field-input" id="join-name" type="text" placeholder="Anonim ya da isim yaz..." maxlength="20">
+      </div>
+      <div class="field">
+        <div class="field-label">Oda Kodu</div>
+        <input class="field-input code-input" id="code-input" type="text" placeholder="· · · ·" maxlength="4">
+      </div>
+      <button class="btn" id="join-btn" onclick="handleJoin()">Odaya Gir</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-n" id="s-players">0</div>
+      <div class="stat-l">Oyuncu</div>
+    </div>
+    <div class="vline"></div>
+    <div class="stat">
+      <div class="stat-n" id="s-rooms">0</div>
+      <div class="stat-l">Aktif Oda</div>
+    </div>
+    <div class="vline"></div>
+    <div class="stat">
+      <div class="stat-n">55</div>
+      <div class="stat-l">İkilem</div>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="preview-label">Örnek İkilem</div>
+    <div class="preview-card" id="preview-text">
+      Önünde bir buton var. Her bastığında bugüne kadar iletişime geçtiğin herhangi biri ölecek — sokakta yol sorduğun biri de olabilir, annen de. Ama karşılığında 1 milyar dolar alacaksın. Butona basar mıydın?
+    </div>
+    <div class="dots" id="dots">
+      <div class="dot on"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>Dilemmator &mdash; Her seçimin bir bedeli var. &nbsp;·&nbsp; <a href="/gizlilik" style="color:inherit;text-decoration:none;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">Gizlilik Politikası</a></footer>
+
+<!-- Error toast -->
+<div class="error-toast" id="error-toast"></div>
+
+<script src="/js/landing.js"></script>
+</body>
+</html>
