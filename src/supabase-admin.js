@@ -1,22 +1,54 @@
 // src/supabase-admin.js — Supabase Sunucu Client ve Realtime Broadcast Helper
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+// Vercel panelinde kullanıcı tırnak ("), boşluk veya sonuna /rest/v1/ eklediyse OTOMATİK TEMİZLE
+function sanitizeUrl(url) {
+  if (!url) return 'https://placeholder.supabase.co';
+  return url
+    .trim()
+    .replace(/^["']|["']$/g, '') // Tırnakları temizle
+    .replace(/\/rest\/v1\/?$/i, '') // Yanlışlıkla /rest/v1/ eklendiyse sil
+    .replace(/\/$/, ''); // Sondaki slash / işaretini kaldır
+}
+
+function sanitizeKey(key) {
+  if (!key) return 'placeholder-api-key';
+  return key.trim().replace(/^["']|["']$/g, ''); // Tırnakları temizle
+}
+
+const SUPABASE_URL = sanitizeUrl(process.env.SUPABASE_URL);
 // Sunucu tarafında SERVICE_ROLE_KEY tercih edilir; yoksa ANON_KEY ile çalışır
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'placeholder-api-key';
+const SUPABASE_KEY = sanitizeKey(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
 
 if (!process.env.SUPABASE_URL || (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY)) {
-  console.warn('⚠️ SUPABASE_URL veya SUPABASE_KEY tanımı eksik. Lütfen Vercel ortam değişkenlerini (Environment Variables) kontrol edin.');
+  console.warn('⚠️ SUPABASE_URL veya SUPABASE_KEY tanımı eksik. Lütfen Vercel ortam değişkenlerini kontrol edin.');
 }
 
 export function getSupabaseError() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_URL.startsWith('http')) {
-    return 'Vercel ortam değişkenleri eksik: SUPABASE_URL tanınamadı! Vercel Settings -> Environment Variables kontrol et ve mutlaka Redeploy yap.';
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_URL.includes('.supabase.')) {
+    return 'Vercel ortam değişkenleri eksik veya geçersiz: SUPABASE_URL tanınamadı! Vercel Settings -> Environment Variables kontrol et ve mutlaka Redeploy yap.';
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY) {
     return 'Vercel ortam değişkenleri eksik: SUPABASE_ANON_KEY veya SERVICE_ROLE_KEY tanınamadı! Ayarladıktan sonra mutlaka Redeploy yap.';
   }
   return null;
+}
+
+/**
+ * Node.js fetch hatalarını (özellikle DNS, tırnak işareti veya geçersiz alan adı sorunları) net biçimde açıklar.
+ */
+export function formatSupabaseError(err) {
+  if (!err) return 'Bilinmeyen hata';
+  const cause = err.cause;
+  let causeStr = '';
+  if (cause) {
+    if (cause.code === 'ENOTFOUND') {
+      causeStr = ` (Sebep: Supabase adresi bulanamadı - SUPABASE_URL içinde harf hatası olabilir!)`;
+    } else {
+      causeStr = ` (Sebep: ${cause.code || ''} ${cause.message || JSON.stringify(cause)})`;
+    }
+  }
+  return `${err.message || JSON.stringify(err)}${causeStr}`;
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -31,8 +63,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
  */
 export async function broadcast(roomCode, eventType, payload = {}) {
   if (getSupabaseError() || !roomCode) return;
-  const baseUrl = SUPABASE_URL.replace(/\/$/, '');
-  const url = `${baseUrl}/realtime/v1/api/broadcast`;
+  const url = `${SUPABASE_URL}/realtime/v1/api/broadcast`;
 
   const bodyData = {
     channel: `room:${roomCode}`,

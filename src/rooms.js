@@ -1,5 +1,5 @@
 // src/rooms.js — Supabase destekli Oda ve Oyuncu yönetimi
-import { supabase, getSupabaseError } from './supabase-admin.js';
+import { supabase, getSupabaseError, formatSupabaseError } from './supabase-admin.js';
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // I,O,0,1 hariç
@@ -101,7 +101,7 @@ export class RoomManager {
 
     if (roomErr) {
       console.error('Oda oluşturma hatası:', roomErr);
-      return { error: `Supabase Hata (rooms): ${roomErr.message || JSON.stringify(roomErr)}` };
+      return { error: `Supabase Hata (rooms): ${formatSupabaseError(roomErr)}` };
     }
 
     // Oyuncuyu ekle
@@ -115,7 +115,7 @@ export class RoomManager {
 
     if (playerErr) {
       console.error('Host oyuncu ekleme hatası:', playerErr);
-      return { error: `Supabase Hata (players): ${playerErr.message || JSON.stringify(playerErr)}` };
+      return { error: `Supabase Hata (players): ${formatSupabaseError(playerErr)}` };
     }
 
     const playersInfo = [
@@ -154,7 +154,7 @@ export class RoomManager {
 
     if (error) {
       console.error('Odayaılma hatası:', error);
-      return { error: `Odaya girilemedi: ${error.message || JSON.stringify(error)}` };
+      return { error: `Odaya girilemedi: ${formatSupabaseError(error)}` };
     }
 
     const updatedPlayers = [...existingPlayers, { id: playerId, name: nameStr, color, connected: true }];
