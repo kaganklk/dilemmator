@@ -588,6 +588,196 @@ function handleServerMessage(msg) {
   }
 }
 
+// ── Veritabanından Güncel Durumu Çek ve Ekrana Yansıt (Polling & Reconnect için) ──
+let isReconnecting = false;
+let pollingTimer = null;
+let lastRealtimeMsgTime = 0;
+
+async function syncStateFromDatabase() {
+  try {
+    const res = await fetch('/api/get-room-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: roomCode, playerId: myPlayerId })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) return;
+
+    if (data.hostId !== undefined) {
+      currentHostId = Number(data.hostId);
+      isHost = Number(myPlayerId) === Number(currentHostId);
+      sessionStorage.setItem('isHost', isHost ? 'true' : 'false');
+    }
+    if (data.players) {
+      currentPlayers = data.players;
+      renderPlayers(currentPlayers);
+      updateSidebar(currentPlayers);
+    }
+    if (data.settings?.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
+      const qc = document.getElementById('question-count');
+      if (qc) qc.textContent = data.settings.questionCount;
+    }
+    if (data.playAgainVotes && Array.isArray(data.playAgainVotes)) {
+      const playBtn = document.getElementById('play-again-btn');
+      const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
+      if (playBtn && playBtn.disabled && data.playAgainVotes.length > 0) {
+        playBtn.textContent = `${data.playAgainVotes.length}/${activeCount} Onayladı`;
+      }
+    }
+
+    const isInEndScene = document.getElementById('scene-end')?.classList.contains('active');
+    if (data.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
+      if (!isInEndScene) {
+        currentQuestionId = null;
+        currentResultQuestionText = null;
+        showScene('lobby');
+        if (!isHost) {
+          document.getElementById('lobby-settings')?.querySelectorAll('.setting-btn').forEach(b => {
+            b.style.display = 'none';
+          });
+        }
+      }
+    } else if (data.state === 'playing') {
+      if (data.allAnswered && data.qResults) {
+        const delay = (currentPlayers.length <= 1) ? 0 : 300;
+        setTimeout(() => showResults(data.qResults), delay);
+      } else if (data.currentQuestion) {
+        showQuestion(data.currentQuestion);
+        if (data.answers) {
+          data.answers.forEach(a => addLiveAnswer(a));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Veritabanı state sync hatası:', err);
+  }
+}
+
+// ── Polling & Realtime Yedekleme Mekanizması (2 Saniye Kuralı) ──
+function resetPollingTimer() {
+  lastRealtimeMsgTime = Date.now();
+  if (pollingTimer) clearInterval(pollingTimer);
+  // Realtime gelirse polling iptal edilir, Realtime gelmezse 2 saniye sonra devreye girer
+  pollingTimer = setInterval(async () => {
+    if (Date.now() - lastRealtimeMsgTime >= 2000) {
+      await syncStateFromDatabase();
+    }
+  }, 2000);
+}
+
+// ── Supabase Realtime Otomatik Yeniden Bağlanma & Loglama ──
+function setupRealtimeChannel(config) {
+  if (!config.url || !config.anonKey) return;
+  if (!supabaseClient) {
+    supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+  }
+  if (roomChannel) {
+    supabaseClient.removeChannel(roomChannel);
+  }
+
+  roomChannel = supabaseClient
+    .channel(`room:${roomCode}`, { config: { broadcast: { self: false, ack: false } } });
+  roomChannel
+    .on('broadcast', { event: '*' }, (payload) => {
+      resetPollingTimer();
+      handleServerMessage(payload.payload);
+    })
+    // ── SUPABASE REALTIME (postgres_changes) DOĞRUDAN PAYLOAD.NEW KULLANIMI (0-REFETCH) ──
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_code=eq.${roomCode}` }, (payload) => {
+      resetPollingTimer();
+      if (payload.eventType === 'DELETE' || (payload.old && !payload.new?.id)) {
+        const deletedId = Number(payload.old?.id);
+        if (!isNaN(deletedId)) {
+          currentPlayers = currentPlayers.filter(p => Number(p.id) !== deletedId);
+          renderPlayers(currentPlayers);
+        }
+      } else if (payload.new && payload.new.id) {
+        const newP = {
+          id: Number(payload.new.id),
+          name: payload.new.name || 'Anonim',
+          color: payload.new.color || '#666',
+          connected: payload.new.connected !== false,
+          isHost: Number(payload.new.id) === Number(currentHostId)
+        };
+        const idx = currentPlayers.findIndex(p => Number(p.id) === Number(newP.id));
+        if (idx >= 0) {
+          currentPlayers[idx] = { ...currentPlayers[idx], ...newP };
+        } else {
+          currentPlayers.push(newP);
+        }
+        renderPlayers(currentPlayers);
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `room_code=eq.${roomCode}` }, (payload) => {
+      resetPollingTimer();
+      if (payload.new && payload.new.question_id && (Number(payload.new.question_id) === Number(currentQuestionId) || String(payload.new.question_id) === String(currentQuestionId))) {
+        addLiveAnswer({
+          playerId: Number(payload.new.player_id),
+          name: payload.new.player_name || 'Anonim',
+          color: payload.new.player_color || '#666',
+          answer: payload.new.answer,
+          questionId: payload.new.question_id,
+          totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
+        });
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` }, (payload) => {
+      resetPollingTimer();
+      if (payload.new) {
+        const room = payload.new;
+        if (room.host_player_id) currentHostId = Number(room.host_player_id);
+        if (room.settings && room.settings.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
+          const countEl = document.getElementById('question-count');
+          if (countEl) countEl.textContent = room.settings.questionCount;
+        }
+        if (room.play_again_votes && Array.isArray(room.play_again_votes)) {
+          const playBtn = document.getElementById('play-again-btn');
+          const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
+          if (playBtn && playBtn.disabled && room.play_again_votes.length > 0) {
+            playBtn.textContent = `${room.play_again_votes.length}/${activeCount} Onayladı`;
+          }
+        }
+        if (room.state === 'playing' && room.questions && room.current_question_index >= 0) {
+          const q = room.questions[room.current_question_index];
+          if (q && q.id !== currentQuestionId) {
+            showQuestion({
+              id: q.id,
+              text: q.text,
+              index: room.current_question_index,
+              total: room.questions.length
+            });
+          }
+        } else if (room.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
+          currentQuestionId = null;
+          currentResultQuestionText = null;
+          showScene('lobby');
+          renderPlayers(currentPlayers);
+          if (room.settings?.questionCount) {
+            const qc = document.getElementById('question-count');
+            if (qc) qc.textContent = room.settings.questionCount;
+          }
+        }
+      }
+    })
+    .subscribe((status, err) => {
+      console.log(`[Supabase Realtime] Bağlantı durumu: ${status}`, err || '');
+      if (status === 'SUBSCRIBED') {
+        resetPollingTimer();
+        if (isReconnecting) {
+          console.log("[Supabase Realtime] Yeniden bağlandı, veritabanından güncel state çekiliyor...");
+          syncStateFromDatabase();
+          isReconnecting = false;
+        } else {
+          syncStateFromDatabase();
+        }
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn("Realtime bağlantısı koptu, yeniden bağlanıyor");
+        isReconnecting = true;
+        setTimeout(() => setupRealtimeChannel(config), 1500);
+      }
+    });
+}
+
 // ── Sıfır Gecikmeli Başlatma ──
 async function initGame() {
   document.getElementById('lobby-code').textContent = roomCode;
@@ -608,96 +798,14 @@ async function initGame() {
   try {
     const configRes = await fetch('/api/config');
     const config = await configRes.json();
-    if (config.url && config.anonKey) {
-      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-      roomChannel = supabaseClient
-        .channel(`room:${roomCode}`, { config: { broadcast: { self: false, ack: false } } });
-      roomChannel
-        .on('broadcast', { event: '*' }, (payload) => {
-          handleServerMessage(payload.payload);
-        })
-        // ── SUPABASE REALTIME (postgres_changes) DOĞRUDAN PAYLOAD.NEW KULLANIMI (0-REFETCH) ──
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_code=eq.${roomCode}` }, (payload) => {
-          if (payload.eventType === 'DELETE' || (payload.old && !payload.new?.id)) {
-            const deletedId = Number(payload.old?.id);
-            if (!isNaN(deletedId)) {
-              currentPlayers = currentPlayers.filter(p => Number(p.id) !== deletedId);
-              renderPlayers(currentPlayers);
-            }
-          } else if (payload.new && payload.new.id) {
-            const newP = {
-              id: Number(payload.new.id),
-              name: payload.new.name || 'Anonim',
-              color: payload.new.color || '#666',
-              connected: payload.new.connected !== false,
-              isHost: Number(payload.new.id) === Number(currentHostId)
-            };
-            const idx = currentPlayers.findIndex(p => Number(p.id) === Number(newP.id));
-            if (idx >= 0) {
-              currentPlayers[idx] = { ...currentPlayers[idx], ...newP };
-            } else {
-              currentPlayers.push(newP);
-            }
-            renderPlayers(currentPlayers);
-          }
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `room_code=eq.${roomCode}` }, (payload) => {
-          if (payload.new && payload.new.question_id && (Number(payload.new.question_id) === Number(currentQuestionId) || String(payload.new.question_id) === String(currentQuestionId))) {
-            addLiveAnswer({
-              playerId: Number(payload.new.player_id),
-              name: payload.new.player_name || 'Anonim',
-              color: payload.new.player_color || '#666',
-              answer: payload.new.answer,
-              questionId: payload.new.question_id,
-              totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
-            });
-          }
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` }, (payload) => {
-          if (payload.new) {
-            const room = payload.new;
-            if (room.host_player_id) currentHostId = Number(room.host_player_id);
-            if (room.settings && room.settings.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
-              const countEl = document.getElementById('question-count');
-              if (countEl) countEl.textContent = room.settings.questionCount;
-            }
-            if (room.play_again_votes && Array.isArray(room.play_again_votes)) {
-              const playBtn = document.getElementById('play-again-btn');
-              const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
-              if (playBtn && playBtn.disabled && room.play_again_votes.length > 0) {
-                playBtn.textContent = `${room.play_again_votes.length}/${activeCount} Onayladı`;
-              }
-            }
-            if (room.state === 'playing' && room.questions && room.current_question_index >= 0) {
-              const q = room.questions[room.current_question_index];
-              if (q && q.id !== currentQuestionId) {
-                showQuestion({
-                  id: q.id,
-                  text: q.text,
-                  index: room.current_question_index,
-                  total: room.questions.length
-                });
-              }
-            } else if (room.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
-              currentQuestionId = null;
-              currentResultQuestionText = null;
-              showScene('lobby');
-              renderPlayers(currentPlayers);
-              if (room.settings?.questionCount) {
-                const qc = document.getElementById('question-count');
-                if (qc) qc.textContent = room.settings.questionCount;
-              }
-            }
-          }
-        })
-        .subscribe();
-    }
+    setupRealtimeChannel(config);
   } catch (err) {
     console.error('Realtime abonelik hatası:', err);
   }
 }
 
 initGame();
+
 
 // ── Sayfa Kapandığında veya Sekme Terk Edildiğinde Çıkış Bildirimi ──
 function notifyPlayerLeft() {
