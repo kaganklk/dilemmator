@@ -12,13 +12,46 @@ let supabaseClient = null;
 let roomChannel = null;
 let currentPlayers = []; 
 
+// ── Event Deduplication (Tekrarlanan Event & State Çakışması Önleyici) ──
+const processedEventIds = new Set();
+let lastRenderedPlayersHash = "";
+let lastSidebarPlayersHash = "";
+
+function isDuplicateEvent(eventId) {
+  if (!eventId) return false;
+  if (processedEventIds.has(eventId)) {
+    console.log(`[Deduplication] Çakışan/tekrarlanan event yoksayıldı: ${eventId}`);
+    return true;
+  }
+  processedEventIds.add(eventId);
+  if (processedEventIds.size > 500) {
+    const first = processedEventIds.values().next().value;
+    processedEventIds.delete(first);
+  }
+  return false;
+}
+
+function getPlayersHash(players) {
+  if (!Array.isArray(players) || players.length === 0) return "empty";
+  const normalized = players.map(p => ({
+    id: Number(p.id),
+    name: (p.name || '').trim(),
+    color: p.color || '',
+    connected: p.connected !== false,
+    isHost: !!p.isHost || Number(p.id) === Number(currentHostId)
+  })).sort((a, b) => a.id - b.id);
+  return JSON.stringify(normalized);
+}
+
 function sendClientBroadcast(eventType, payloadData) {
   try {
     if (roomChannel) {
+      const timestamp = Date.now();
+      const eventId = `client_${eventType}_${timestamp}_${Math.random().toString(36).substr(2, 5)}`;
       roomChannel.send({
         type: 'broadcast',
         event: eventType,
-        payload: { type: eventType, ...payloadData }
+        payload: { type: eventType, eventId, timestamp, ...payloadData }
       });
     }
   } catch (e) { /* Hata yokmuş gibi devam et */ }
@@ -62,6 +95,13 @@ window.copyCode = function() {
 // ── Sidebar ──
 function updateSidebar(players) {
   currentPlayers = players || [];
+  const newHash = getPlayersHash(currentPlayers);
+  if (newHash === lastSidebarPlayersHash && lastSidebarPlayersHash !== "") {
+    // Aynı oyuncu listesi zaten yan menüde ekranda, duplicate render engellendi!
+    return;
+  }
+  lastSidebarPlayersHash = newHash;
+
   const list = document.getElementById('sidebar-list');
   const count = document.getElementById('sidebar-count');
 
@@ -86,7 +126,15 @@ function renderPlayers(players) {
     updateGameEndRanking(lastGameEndData);
   }
 
+  const newHash = getPlayersHash(currentPlayers);
+  const isLobbyActive = document.getElementById('scene-lobby')?.classList.contains('active');
   const grid = document.getElementById('lobby-players');
+  if (newHash === lastRenderedPlayersHash && lastRenderedPlayersHash !== "" && isLobbyActive && grid?.children?.length > 0) {
+    // Aynı veri zaten lobi ekranda var, Realtime & polling çakışması sonucu oluşan liste titreşimi engellendi!
+    return;
+  }
+  lastRenderedPlayersHash = newHash;
+
   grid.innerHTML = currentPlayers.map(p => `
     <div class="player-chip">
       <div class="player-avatar" style="background:${p.color || '#666'}">${(p.name || '?').charAt(0).toUpperCase()}</div>
@@ -139,9 +187,21 @@ window.changeQuestionCount = async function(delta) {
 // ── Question rendering ──
 function showQuestion(question) {
   if (!question) return;
+  const qId = question.id ?? question.index ?? '0';
+  const qStateFlag = `state_q_${qId}`;
+  
   if (currentQuestionId === question.id && document.getElementById('scene-question')?.classList.contains('active')) {
     return;
   }
+  // State Değişikliği Flag Kontrolü: Bu soru zaten açıldıysa Realtime/Polling 2. tetiklemesi yoksayıtılır!
+  if (isDuplicateEvent(qStateFlag) && currentQuestionId === question.id) {
+    return;
+  }
+  // Eğer bu sorunun sonuç ekrana çoktan geçildiysé polling'in eski state'le soruyu tekrar göstermesi yasadışı!
+  if (document.getElementById('scene-results')?.classList.contains('active') && processedEventIds.has(`state_res_${question.text || qId}`)) {
+    return;
+  }
+
   currentQuestionId = question.id;
   currentResultQuestionText = null;
   hasAnswered = false;
@@ -217,6 +277,10 @@ function addLiveAnswer(data) {
   if (!data || !data.playerId) return;
   if (data.questionId && currentQuestionId && String(data.questionId) !== String(currentQuestionId)) {
     return;
+  }
+  const ansFlag = `ans_event_${currentQuestionId}_${data.playerId}`;
+  if (isDuplicateEvent(ansFlag)) {
+    return; // Realtime & polling aynı cevabı yakalarsa 2. kez eklemiyor
   }
 
   const alreadyAnswered = currentQuestionAnswers.some(a => Number(a.playerId) === Number(data.playerId));
@@ -303,6 +367,11 @@ function triggerOptimisticResultsIfNeeded() {
 // ── Results rendering ──
 function showResults(data) {
   if (!data) return;
+  const resFlag = `state_res_${data.question || currentQuestionId}`;
+  if (isDuplicateEvent(resFlag)) {
+    // Realtime ve Polling aynı anda state değişikliği (herkes cevap verdi) algılarsa soru/sonuç ekrana ikinci kez çizilmez!
+    return;
+  }
   if (currentResultQuestionText === data.question && document.getElementById('scene-results')?.classList.contains('active')) {
     return;
   }
@@ -368,6 +437,9 @@ window.nextQuestion = async function() {
 // ── Game end ──
 function showGameEnd(data) {
   if (!data) return;
+  if (isDuplicateEvent('state_game_end_scene') && document.getElementById('scene-end')?.classList.contains('active')) {
+    return;
+  }
   lastGameEndData = data;
   showScene('end');
 
@@ -493,6 +565,14 @@ window.startGame = async function() {
 function handleServerMessage(msg) {
   if (!msg || !msg.type) return;
 
+  // Unique ID veya Timestamp mekanizması ile çift işleme yasağı
+  const eventUniqueId = msg.eventId || msg.timestamp || msg.id;
+  if (eventUniqueId) {
+    if (isDuplicateEvent(`msg_${msg.type}_${eventUniqueId}`)) {
+      return;
+    }
+  }
+
   switch (msg.type) {
     case 'room_joined':
       sessionStorage.setItem('playerId', msg.playerId);
@@ -566,6 +646,10 @@ function handleServerMessage(msg) {
       break;
 
     case 'back_to_lobby':
+      if (isDuplicateEvent('state_back_to_lobby_scene') && document.getElementById('scene-lobby')?.classList.contains('active')) {
+        return;
+      }
+      processedEventIds.clear(); // Yeni oyun turu için önceki tüm state ve event ID'lerini sıfırla!
       currentQuestionId = null;
       currentResultQuestionText = null;
       showScene('lobby');

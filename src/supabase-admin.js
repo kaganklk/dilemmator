@@ -62,12 +62,15 @@ export async function broadcast(roomCode, eventType, payload = {}) {
   if (getSupabaseError() || !roomCode) return;
   const url = `${SUPABASE_URL}/realtime/v1/api/broadcast`;
 
+  const timestamp = Date.now();
+  const eventId = `${eventType}_${timestamp}_${Math.random().toString(36).substring(2, 8)}`;
+
   const bodyData = {
     messages: [
       {
         topic: `room:${roomCode}`,
         event: eventType,
-        payload: { type: eventType, ...payload },
+        payload: { type: eventType, eventId, timestamp, ...payload },
       }
     ]
   };
