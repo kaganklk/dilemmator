@@ -1,11 +1,11 @@
 // landing.js — Ana sayfa mantığı (Supabase & Vercel API uyumlu)
 
 const previewDilemmas = [
-  "Önünde bir buton var. Her bastığında bugüne kadar iletişime geçtiğin herhangi biri ölecek — sokakta yol sorduğun biri de olabilir, annen de. Ama karşılığında 1 milyar dolar alacaksın. Butona basar mıydın?",
-  "Ölümsüz olabilirsin ama dünyada tek sen olursun — sevdiğin herkes 30 yıl içinde ölecek. Sonsuz yalnızlık karşılığında ölümsüzlüğü kabul eder miydin?",
-  "Bir ilaç seni ömür boyu gerçek mutlu eder ama tüm anıların silinir. Ailenin kim olduğunu bile hatırlamazsın. Alır mıydın?",
-  "50 milyon dolar karşılığında rastgele bir ülkede 1000 kişi ölecek — haberlerde bile çıkmayacak. Kabul eder miydin?",
-  "Dünyadaki açlığı bitirebilirsin ama karşılığında sen hayatının geri kalanında sadece ekmek ve su tüketebileceksin. Yapar mıydın?"
+  "Önünde gizemli bir buton var. Her bastığında bugüne kadar iletişime geçtiğin <u>herhangi biri ölecek</u> — sokakta selam verdiğin biri de olabilir, annen de. Ancak karşılığında tam <strong>1 milyar dolar</strong> alacaksın. Butona basar mıydın?",
+  "Dünya üzerinde <strong>ölümsüz</strong> olabilirsin ama bunun bedeli olarak sevdiğin <u>herkes 30 yıl içinde ölecek</u>. Sonsuz bir yalnızlık karşılığında ölümsüzlüğü kabul eder miydin?",
+  "Tam <strong>10 milyon dolar</strong> karşılığında hayatının geri kalanında kimseyle <u>fiziksel temas kuramayacaksın</u> — el sıkışma, sarılma veya dokunma asla olmayacak. Kabul eder miydin?",
+  "Ömrünün sonuna kadar çalışmadan <strong>aylık 100.000 TL</strong> maaş alacaksın ancak hayattaki en sevdiğin <u>favori 3 yemeğini</u> bir daha asla yiyemeyeceksin. Kabul eder miydin?",
+  "İstediğin her türlü <strong>insanüstü süper güce</strong> sahip olabileceksin ancak kazandığın her güç için merhamet gibi <u>insani bir duygunu tamamen kaybedeceksin</u>. Yapar mıydın?"
 ];
 
 let previewIndex = 0;
@@ -31,7 +31,7 @@ setInterval(() => {
 
   setTimeout(() => {
     previewIndex = (previewIndex + 1) % previewDilemmas.length;
-    el.textContent = previewDilemmas[previewIndex];
+    el.innerHTML = previewDilemmas[previewIndex];
     el.classList.remove('fade-out');
     dotsEl.querySelectorAll('.dot').forEach((d, i) => {
       d.classList.toggle('on', i === previewIndex);

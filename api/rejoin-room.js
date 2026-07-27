@@ -8,10 +8,10 @@ const engine = new GameEngine();
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { code = '', name } = req.body || {};
+  const { code = '', playerId, name } = req.body || {};
   const cleanCode = code.trim().toUpperCase();
 
-  const result = await rooms.rejoinRoom(cleanCode, name);
+  const result = await rooms.rejoinRoom(cleanCode, playerId, name);
   if (result.error) {
     return res.status(400).json({ type: 'error', message: result.error });
   }

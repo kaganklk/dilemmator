@@ -66,7 +66,7 @@ export class RoomManager {
       id: p.id,
       name: p.name,
       color: p.color,
-      isHost: p.id === hostId,
+      isHost: Number(p.id) === Number(hostId),
       connected: p.connected,
     }));
   }
@@ -142,9 +142,26 @@ export class RoomManager {
     if (!room) return { error: 'Oda bulunamadı veya kapandı.' };
     if (currentPlayers.length >= 15) return { error: 'Oda dolu (maks 15 kişi).' };
 
+    const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
+    const existing = currentPlayers.find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
+    if (existing) {
+      if (!existing.connected) {
+        await supabase.from('players').update({ connected: true }).eq('id', existing.id.toString());
+        existing.connected = true;
+      }
+      return {
+        roomCode: code,
+        playerId: existing.id,
+        players: this.getPlayersInfo(currentPlayers, room.hostId),
+        settings: room.settings,
+        gameState: room.state,
+        isHost: Number(existing.id) === Number(room.hostId),
+        rejoined: true,
+      };
+    }
+
     const playerId = generatePlayerId();
     const color = this.getPlayerColor(currentPlayers.length);
-    const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
 
     const { error } = await supabase.from('players').insert({
       id: playerId.toString(),
@@ -168,11 +185,11 @@ export class RoomManager {
       players: playersInfo,
       settings: room.settings,
       gameState: room.state,
-      isHost: playerId === room.hostId,
+      isHost: Number(playerId) === Number(room.hostId),
     };
   }
 
-  async rejoinRoom(code, playerName) {
+  async rejoinRoom(code, playerId, playerName) {
     const configErr = getSupabaseError();
     if (configErr) return { error: configErr };
 
@@ -184,8 +201,14 @@ export class RoomManager {
 
     if (!room) return { error: 'Oda bulunamadı.' };
 
-    const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
-    const existing = (players || []).find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
+    let existing = null;
+    if (playerId && !isNaN(Number(playerId))) {
+      existing = (players || []).find(p => Number(p.id) === Number(playerId));
+    }
+    if (!existing) {
+      const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
+      existing = (players || []).find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
+    }
 
     if (existing) {
       if (!existing.connected) {
@@ -198,7 +221,7 @@ export class RoomManager {
         players: this.getPlayersInfo(players, room.hostId),
         settings: room.settings,
         gameState: room.state,
-        isHost: existing.id === room.hostId,
+        isHost: Number(existing.id) === Number(room.hostId),
         rejoined: true,
       };
     }
@@ -220,5 +243,67 @@ export class RoomManager {
       .eq('code', roomCode);
 
     return newSettings;
+  }
+
+  async leaveRoom(code, playerId) {
+    const configErr = getSupabaseError();
+    if (configErr) return { error: configErr };
+    if (!code || !playerId) return { error: 'Geçersiz parametre' };
+
+    await Promise.all([
+      supabase.from('players').delete().eq('id', playerId.toString()).eq('room_code', code),
+      supabase.from('answers').delete().eq('player_id', playerId.toString()).eq('room_code', code)
+    ]);
+
+    const [room, players] = await Promise.all([
+      this.getRoom(code),
+      this.getPlayers(code)
+    ]);
+
+    if (!room) return { error: 'Oda bulunamadı' };
+
+    // Eğer oda sahibi çıkmışsa ve odada halen biri varsa host haklarını devret!
+    if (Number(room.hostId) === Number(playerId) && (players || []).length > 0) {
+      const newHostId = Number(players[0].id);
+      room.hostId = newHostId;
+      await supabase.from('rooms').update({ host_player_id: newHostId.toString() }).eq('code', code);
+    }
+
+    const playersInfo = this.getPlayersInfo(players || [], room.hostId);
+    const activeCount = (players || []).length || 1;
+    let shouldResetToLobby = false;
+    let lobbyData = null;
+    let validVotesCount = 0;
+
+    if (room.state === 'end' && Array.isArray(room.playAgainVotes)) {
+      const activeIds = (players || []).map(p => p.id.toString());
+      const validVotes = room.playAgainVotes.filter(v => activeIds.includes(v.toString()));
+      validVotesCount = validVotes.length;
+
+      if ((players || []).length > 0 && validVotesCount >= activeCount) {
+        await Promise.all([
+          supabase.from('answers').delete().eq('room_code', code),
+          supabase.from('rooms').update({
+            state: 'lobby',
+            play_again_votes: [],
+            current_question_index: 0
+          }).eq('code', code)
+        ]);
+        shouldResetToLobby = true;
+        lobbyData = {
+          players: playersInfo,
+          settings: room.settings || { questionCount: 10 }
+        };
+      }
+    }
+
+    return {
+      room,
+      players: playersInfo,
+      activePlayersCount: activeCount,
+      validVotesCount,
+      shouldResetToLobby,
+      lobbyData
+    };
   }
 }

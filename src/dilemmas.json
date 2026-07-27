@@ -1,277 +1,172 @@
 [
   {
     "id": 1,
-    "text": "Önünde bir buton var. Her bastığında bugüne kadar iletişime geçtiğin herhangi biri ölecek — sokakta yol sorduğun biri de olabilir, annen de. Ama karşılığında 1 milyar dolar alacaksın. Butona basar mıydın?",
+    "text": "Önünde gizemli bir buton var. Her bastığında bugüne kadar iletişime geçtiğin <u>herhangi biri ölecek</u> — sokakta selam verdiğin biri de olabilir, annen de. Ancak karşılığında tam <strong>1 milyar dolar</strong> alacaksın. Butona basar mıydın?",
     "tags": ["cani", "paragoz"]
   },
   {
     "id": 2,
-    "text": "Ölümsüz olabilirsin ama dünyada tek sen olursun — sevdiğin herkes 30 yıl içinde ölecek, yeni tanıştıkların da. Sonsuz yalnızlık karşılığında ölümsüzlüğü kabul eder miydin?",
-    "tags": ["bencil"]
+    "text": "Dünya üzerinde <strong>ölümsüz</strong> olabilirsin ama bunun bedeli olarak sevdiğin <u>herkes 30 yıl içinde ölecek</u>. Sonsuz bir yalnızlık karşılığında ölümsüzlüğü kabul eder miydin?",
+    "tags": ["bencil", "cani"]
   },
   {
     "id": 3,
-    "text": "Bir ilaç seni ömür boyu gerçek mutlu eder, hiç acı çekmezsin. Ama tüm anıların silinir. Ailenin kim olduğunu bile hatırlamazsın. Sıfırdan başlarsın. Alır mıydın?",
+    "text": "Seni ömür boyu <strong>mutlu ve huzurlu</strong> kılacak bir ilaç var ancak içtiğinde <u>tüm anıların silinecek</u>. Ailenin kim olduğunu dahi hatırlamayacaksın. Bu ilacı alır mıydın?",
     "tags": ["bencil"]
   },
   {
     "id": 4,
-    "text": "Dünyada açlıktan ölen herkesi kurtarabilirsin ama karşılığında en sevdiğin 3 kişi ölecek. Yapar mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 5,
-    "text": "10 milyon dolar karşılığında hayatının geri kalanında kimseyle fiziksel temas kuramayacaksın — el sıkışma, sarılma, hiçbir şey. Kabul eder miydin?",
+    "text": "Tam <strong>10 milyon dolar</strong> karşılığında hayatının geri kalanında kimseyle <u>fiziksel temas kuramayacaksın</u> — el sıkışma, sarılma veya dokunma asla olmayacak. Kabul eder miydin?",
     "tags": ["paragoz"]
   },
   {
-    "id": 6,
-    "text": "Herkesin aklını okuyabilirsin ama karşılığında senin her düşüncen de herkes tarafından duyulacak. Kabul eder miydin?",
+    "id": 5,
+    "text": "Çevrendeki <strong>herkesin aklını okuyabilme</strong> gücüne sahip olacaksın ancak karşılığında senin de <u>her düşüncen herkes tarafından duyulacak</u>. Kabul eder miydin?",
     "tags": ["bencil"]
   },
   {
+    "id": 6,
+    "text": "<strong>500.000 dolar</strong> ödül ve en yakın arkadaşının tüm başarıları sana verilecek; karşılığında senin tüm <u>başarısızlıkların ona aktarılacak</u>. Kabul eder miydin?",
+    "tags": ["paragoz", "bencil"]
+  },
+  {
     "id": 7,
-    "text": "Bir düğmeye basarak dünyayı sıfırlayabilirsin — tüm insanlık yok olur, sadece sen kalırsın ve yepyeni bir dünya kurarsın. Basar mıydın?",
+    "text": "Zamanda geriye gidip değer verdiğin <strong>ölmüş birini kurtarabilirsin</strong> fakat bunun bedeli olarak şu an dünyada yaşayan <u>masum bir insan ölecek</u>. Yapar mıydın?",
     "tags": ["cani", "bencil"]
   },
   {
     "id": 8,
-    "text": "100 milyon dolar karşılığında en yakın arkadaşının tüm başarıları sana, senin tüm başarısızlıkların ona aktarılacak. Kabul eder miydin?",
-    "tags": ["paragoz", "bencil"]
-  },
-  {
-    "id": 9,
-    "text": "Zamanda geriye gidip ölmüş birini kurtarabilirsin ama karşılığında şu an hayatta olan başka biri ölecek — kimi olduğunu bilmiyorsun. Yapar mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 10,
-    "text": "5 milyon dolar karşılığında bir yıl boyunca herkes seni görmezden gelecek — kimse seninle konuşmayacak, mesajlarına cevap vermeyecek. Kabul eder miydin?",
-    "tags": ["paragoz"]
-  },
-  {
-    "id": 11,
-    "text": "Dünyanın en zeki insanı olabilirsin ama karşılığında hiçbir duygu hissedemezsin — sevgi, neşe, üzüntü hiçbiri. Kabul eder miydin?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 12,
-    "text": "Tüm borçlarından kurtulup ömür boyu ekonomik özgürlüğe sahip olabilirsin ama karşılığında annenin veya babanın seni bir daha hatırlamayacak. Kabul eder miydin?",
-    "tags": ["paragoz", "bencil"]
-  },
-  {
-    "id": 13,
-    "text": "50 milyon dolar karşılığında rastgele bir ülkede 1000 kişi ölecek — onları görmeyeceksin, haberlerde bile çıkmayacak. Kabul eder miydin?",
-    "tags": ["cani", "paragoz"]
-  },
-  {
-    "id": 14,
-    "text": "Görünmez olabilirsin ama sadece kötü amaçlarla kullanabilirsin — iyi amaçla kullandığında güç gider. Kabul eder miydin?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 15,
-    "text": "Bir kişiyi seçip onun tüm yeteneklerini çalabilirsin ama o kişi her şeyini kaybedecek — işini, yeteneğini, özgüvenini. Yapar mıydın?",
+    "text": "Genç ve sağlıklı bir şekilde <strong>150 yıl yaşayabilirsin</strong> ancak her 10 yılda bir hiç tanımadığın <u>masum bir insan ölecek</u>. Bu uzun ömrü kabul eder miydin?",
     "tags": ["cani", "bencil"]
   },
   {
+    "id": 9,
+    "text": "Dünyadaki istediğin <strong>tüm hastalıkları iyileştirme</strong> gücüne sahip olacaksın fakat kurtardığın her can için senin <u>ömründen 1 yıl eksilecek</u>. Kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 10,
+    "text": "Günlük yaşantın kusursuz ve <strong>tamamen mükemmel</strong> geçecek ancak bedel olarak her gece rüyanda <u>korkunç bir ölüm anını</u> bizzat yaşayacaksın. Kabul eder miydin?",
+    "tags": ["bencil", "cani"]
+  },
+  {
+    "id": 11,
+    "text": "Tüm insanların <strong>duygularını kontrol edebilme</strong> kudretine sahip olacaksın fakat bunun sonucunda sen <u>kendi tüm duygularını yitireceksin</u>. Kabul eder miydin?",
+    "tags": ["cani", "bencil"]
+  },
+  {
+    "id": 12,
+    "text": "Tüm insanlığın <strong>geleceğini kusursuzca görebilirsin</strong> ancak olayları <u>asla değiştiremez</u> ve kimseye söyleyemezsin. Bu sessiz yükü kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 13,
+    "text": "Dünya üzerindeki <strong>tüm açlığı ve sefaleti bitirebilirsin</strong> fakat sen ömrünün sonuna kadar sadece <u>ekmek ve su tüketmek</u> zorunda kalacaksın. Yapar mıydın?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 14,
+    "text": "Hayallerindeki gibi <strong>mükemmel bir aşk ilişkisi</strong> yaşayacaksın ancak sevgilin aslında gelişmiş bir <u>yapay zeka programı</u> ve bunu sadece sen biliyorsun. İlişkiye devam eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 15,
+    "text": "Ömrünün sonuna kadar çalışmadan <strong>aylık 100.000 TL</strong> maaş alacaksın ancak hayattaki en sevdiğin <u>favori 3 yemeğini</u> bir daha asla yiyemeyeceksin. Kabul eder miydin?",
+    "tags": ["paragoz"]
+  },
+  {
     "id": 16,
-    "text": "Dünyada istediğin herhangi bir kişiyle yer değiştirebilirsin — onun hayatını yaşarsın, o seninkini. O bunu istemese bile. Yapar mıydın?",
+    "text": "Tuttuğun futbol takımı önümüzdeki 15 yıl boyunca <strong>aralıksız tüm kupalarda şampiyon</strong> olacak ancak 16. yıl <u>futbol dünya genelinde tamamen yasaklanacak</u>. Kabul eder miydin?",
     "tags": ["bencil"]
   },
   {
     "id": 17,
-    "text": "20 milyon dolar karşılığında en yakın arkadaşın 5 yıl hapis yatacak — suçsuz yere. Kabul eder miydin?",
-    "tags": ["cani", "paragoz"]
+    "text": "Hiçbir şey yapmadan <strong>aylık 20.000 TL</strong> kazanacaksın fakat karşılığında en yakın arkadaşın her gün istisnasız <u>ayak serçe parmağını masaya vurup acı çekecek</u>. Kabul eder miydin?",
+    "tags": ["paragoz", "cani", "bencil"]
   },
   {
     "id": 18,
-    "text": "Bir ilaçla 150 yıl yaşayabilirsin ama her 10 yılda bir tanımadığın biri ölecek. Alır mıydın?",
-    "tags": ["cani", "bencil"]
-  },
-  {
-    "id": 19,
-    "text": "1 milyar dolar karşılığında dünyadan tüm müzik silinecek — kimse bir daha müzik yapamayacak, dinleyemeyecek. Kabul eder miydin?",
+    "text": "Hayatının sonuna kadar <strong>sınırsız bir zenginlik içinde</strong> yaşayacaksın ancak ömrün boyunca <u>tamamen yalnız ve sevgisiz</u> kalacaksın. Bu zenginliği kabul eder miydin?",
     "tags": ["paragoz", "bencil"]
   },
   {
-    "id": 20,
-    "text": "En sevdiğin kişinin aklındaki sana dair tüm düşünceleri görebilirsin ama gördüklerini asla unutamayacaksın. Kabul eder miydin?",
+    "id": 19,
+    "text": "Günde sadece <strong>1 saatlik uyku</strong> tüm fiziksel uyku ihtiyacını karşılayacak ancak ömrün boyunca <u>kendi evinde veya yatağında asla uyuyamayacaksın</u>. Kabul eder miydin?",
     "tags": ["bencil"]
+  },
+  {
+    "id": 20,
+    "text": "İstediğin her türlü <strong>insanüstü süper güce</strong> sahip olabileceksin ancak kazandığın her güç için merhamet gibi <u>insani bir duygunu tamamen kaybedeceksin</u>. Yapar mıydın?",
+    "tags": ["bencil", "cani"]
   },
   {
     "id": 21,
-    "text": "Doğmamış çocuğunun nasıl öleceğini görebilirsin — değiştiremezsin ama hazırlanabilirsin. Görür müydün?",
-    "tags": ["bencil"]
+    "text": "1600'lü yıllara <strong>zamanda yolculuk yapacaksın</strong> ancak sıfırdan başlayıp dönemin <u>en zenginlerinden biri olana kadar</u> günümüze asla dönemeyeceksin. Kabul eder miydin?",
+    "tags": ["paragoz", "bencil"]
   },
   {
     "id": 22,
-    "text": "500 milyon dolar karşılığında hiçbir zaman aşık olamayacaksın — romantik duygu hissetme kapasiten tamamen silinecek. Kabul eder miydin?",
-    "tags": ["paragoz"]
+    "text": "Hayatındaki istediğin her anıya <strong>geri dönüp tekrar yaşama</strong> şansın olacak ancak bunu her yaptığında başka bir masum insanın <u>en mutlu anısı temelli silinecek</u>. Yapar mıydın?",
+    "tags": ["bencil", "cani"]
   },
   {
     "id": 23,
-    "text": "Dünyadaki herkesin sırlarını bilebilirsin ama kimse bir daha sana güvenmeyecek — herkes senin bu gücünü bilecek. Kabul eder miydin?",
+    "text": "Fiziksel olarak anında <strong>10 yaş daha genç ve dinç</strong> görüneceksin fakat bedel olarak kalan toplam <u>ömründen 3 yıl silinecek</u>. Kabul eder miydin?",
     "tags": ["bencil"]
   },
   {
     "id": 24,
-    "text": "Kardeşinin veya en yakın arkadaşının hayalindeki işi alabilirsin — o asla o işe giremeyecek. Yapar mıydın?",
-    "tags": ["bencil", "cani"]
-  },
-  {
-    "id": 25,
-    "text": "Bir milyon dolar karşılığında tanımadığın birinin parmağını kıracaksın — yüz yüze bakarak. Yapar mıydın?",
-    "tags": ["cani", "paragoz"]
-  },
-  {
-    "id": 26,
-    "text": "Savaşları bitirebilecek bir formül buldun ama çalışması için 10.000 kişinin ölmesi gerekiyor. Kullanır mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 27,
-    "text": "Tüm hastalıkları iyileştirebilecek bir güce sahip olabilirsin ama her iyileştirdiğin kişi için kendi ömründen 1 yıl gidecek. Kabul eder miydin?",
-    "tags": []
-  },
-  {
-    "id": 28,
-    "text": "200 milyon dolar karşılığında hayatının en mutlu anısı silinecek ve bir daha asla o mutluluğu hissedemeyeceksin. Kabul eder miydin?",
+    "text": "Şu anki hayatın ve hafızan <strong>tamamen sıfırlanıp</strong> baştan başlayacak ancak yeniden doğduğunda <u>%50 ihtimalle aşırı zengin</u> olacaksın. Bu kumarı oynar mıydın?",
     "tags": ["paragoz"]
   },
   {
-    "id": 29,
-    "text": "İstediğin kişinin hafızasından kendini silebilirsin — seni hiç tanımamış gibi olur. Eski sevgiline yapar mıydın?",
+    "id": 25,
+    "text": "Ömrün boyunca <strong>asla açlık hissetmeyecek</strong> ve kilo problemi yaşamayacaksın fakat bir daha asla <u>hiçbir lezzeti tadamayacak ve yemek yiyemeyeceksin</u>. Kabul eder miydin?",
     "tags": ["bencil"]
   },
   {
+    "id": 26,
+    "text": "Her yıl banka hesabına karşılıksız <strong>100.000 dolar</strong> yatırılacak ancak bu parayla aldığın ve yaptığın <u>her şey tüm dünya insanlarına ilan edilecek</u>. Kabul eder miydin?",
+    "tags": ["paragoz"]
+  },
+  {
+    "id": 27,
+    "text": "Tuttuğun takım çıktığı <strong>tüm maçları ve kupaları kazanacak</strong> ancak sen hayatın boyunca <u>hiçbir maçlarını izleyemeyecek</u>, yalnızca maç sonucu görebileceksin. Kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 28,
+    "text": "Dünya üzerindeki tüm konser ve etkinliklere <strong>ücretsiz VIP bilet</strong> kazanacaksın fakat her etkinliğe <u>seni en çok sevmeyen bir insanla</u> gitmek zorunda kalacaksın. Kabul eder miydin?",
+    "tags": ["bencil", "paragoz"]
+  },
+  {
+    "id": 29,
+    "text": "Ömrün boyunca asla çalışmana gerek kalmayacak kadar <strong>devasa bir servetin olacak</strong> ancak bedel olarak her sabah uyandığında <u>tam 1 saat şiddetli baş ağrısı</u> çekeceksin. Kabul eder miydin?",
+    "tags": ["paragoz", "bencil"]
+  },
+  {
     "id": 30,
-    "text": "Evcil hayvanın seninle konuşabilir ama karşılığında ailenle bir daha konuşamayacaksın. Kabul eder miydin?",
+    "text": "Mükemmel giden hayatının aslında bir <strong>bilgisayar simülasyonu</strong> olduğunu keşfettin. Çileli gerçek dünyaya dönüş yapmak yerine, <u>mutlu olduğun bu sahte simülasyonda</u> yaşamaya devam eder miydin?",
     "tags": ["bencil"]
   },
   {
     "id": 31,
-    "text": "300 milyon dolar karşılığında dünyadaki tüm arılar yok olacak — ekosistem çökecek ama senin ömrünü etkilemeyecek. Kabul eder miydin?",
-    "tags": ["paragoz", "bencil"]
+    "text": "Dünyadaki istediğin <strong>tüm yabancı dilleri anında konuşabileceksin</strong> ancak kendi <u>ana dilini tamamen unutacak</u> ve bir daha asla geri öğrenemeyeceksin. Kabul eder miydin?",
+    "tags": ["bencil"]
   },
   {
     "id": 32,
-    "text": "Hayatının geri kalanında her gece birinin ölümünü rüyanda yaşayacaksın ama karşılığında günlük hayatında her şey mükemmel gidecek. Kabul eder miydin?",
+    "text": "Çağırdığın her asansör anında <strong>senin bulunduğun kata gelecek</strong> ancak bindiğin her asansörün içi istisnasız <u>zifiri ve ürkütücü bir karanlık</u> olacak. Kabul eder miydin?",
     "tags": ["bencil"]
   },
   {
     "id": 33,
-    "text": "En nefret ettiğin kişiye 50 milyon dolar verilecek — ama karşılığında sen de 10 milyon dolar alacaksın. Kabul eder miydin?",
-    "tags": ["paragoz"]
+    "text": "Tek bir büyük yalan söyleyerek <strong>1000 masum insanın hayatını kurtaracaksın</strong> ancak bu yalan sonsuza kadar <u>senin adınla ve lekeleyici bir utançla</u> anılacak. Yapar mıydın?",
+    "tags": ["bencil", "cani"]
   },
   {
     "id": 34,
-    "text": "Dünyadaki tüm silahları yok edebilirsin ama karşılığında kendi ülkenin savunmasız kalacak. Yapar mıydın?",
-    "tags": []
-  },
-  {
-    "id": 35,
-    "text": "Bir yabancının organlarını çalarak annenin hayatını kurtarabilirsin. Yapar mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 36,
-    "text": "Tüm insanların duygularını kontrol edebilirsin ama kendi duygularını kaybedersin. Kabul eder miydin?",
+    "text": "Zamanda yolculuk yaparak tarihteki <strong>çok büyük bir faciayı engelleyeceksin</strong> ancak asla kendi zamanına dönemeyecek, geri kalan ömrünü <u>geçmiş yüzyılda yaşamak</u> zorunda kalacaksın. Yapar mıydın?",
     "tags": ["bencil"]
-  },
-  {
-    "id": 37,
-    "text": "1 milyar dolar karşılığında bir yıl boyunca kafeste yaşayacaksın — temel ihtiyaçların karşılanacak ama özgürlüğün sıfır. Kabul eder miydin?",
-    "tags": ["paragoz"]
-  },
-  {
-    "id": 38,
-    "text": "En yakın arkadaşınla aranızdaki tüm anıları takas edebilirsin — sen onun, o senin anılarını yaşayacak. Yapar mıydın?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 39,
-    "text": "Geleceği görebilirsin ama gördüğün hiçbir şeyi değiştiremezsin ve kimseye söyleyemezsin. Kabul eder miydin?",
-    "tags": []
-  },
-  {
-    "id": 40,
-    "text": "Dünyadaki açlığı bitirebilirsin ama karşılığında sen hayatının geri kalanında sadece ekmek ve su tüketebileceksin. Yapar mıydın?",
-    "tags": []
-  },
-  {
-    "id": 41,
-    "text": "50 milyon dolar karşılığında hayatındaki en önemli kişi seni tamamen unutacak — seninle ilgili tek bir anısı kalmayacak. Kabul eder miydin?",
-    "tags": ["paragoz", "bencil"]
-  },
-  {
-    "id": 42,
-    "text": "Tanrı sana soruyor: Dünyayı yeniden yaratacağım ama bu sefer seni eklemeyeceğim. Daha iyi bir dünya olacak. İzin verir misin?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 43,
-    "text": "Bir zaman makinesiyle geçmişe gidip Hitler'i bebekken öldürebilirsin. Yapar mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 44,
-    "text": "Sevgilinle mükemmel bir ilişkin olacak ama aslında o bir yapay zeka — gerçek bir insan değil ve bunu biliyorsun. Devam eder miydin?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 45,
-    "text": "100 milyon dolar karşılığında anneni veya babanı seçeceksin — seçmediğin ebeveyn seni bir daha görmeyecek. Kabul eder miydin?",
-    "tags": ["paragoz", "cani"]
-  },
-  {
-    "id": 46,
-    "text": "İnsanlığı kurtaracak bir aşı geliştirmek için 100 masum insanı denek olarak kullanman gerekiyor — bazıları ölecek. Yapar mıydın?",
-    "tags": ["cani"]
-  },
-  {
-    "id": 47,
-    "text": "Bir milyar dolar karşılığında dünyadaki rastgele 5 kişinin tüm mutlu anıları silinecek. Kabul eder miydin?",
-    "tags": ["paragoz", "cani"]
-  },
-  {
-    "id": 48,
-    "text": "Ölmek üzere olan evcil hayvanının bilincini bir robota aktarabilirsin ama o artık gerçek anlamda 'o' olmayacak. Yapar mıydın?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 49,
-    "text": "Herkesin seni sevmesini sağlayabilirsin ama karşılığında kimse seni gerçekten tanımayacak — sahte bir sevgi. Kabul eder miydin?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 50,
-    "text": "30 milyon dolar karşılığında bir yıl boyunca her gün bir yabancıya tokat atacaksın. Kabul eder miydin?",
-    "tags": ["cani", "paragoz"]
-  },
-  {
-    "id": 51,
-    "text": "Dünyada herkes eşit olacak — aynı para, aynı ev, aynı yemek. Ama sen de dahilsin, hiçbir lüksün olmayacak. Kabul eder miydin?",
-    "tags": []
-  },
-  {
-    "id": 52,
-    "text": "En yakın arkadaşının en büyük sırrını öğrenebilirsin ama o da seninkini öğrenecek. Kabul eder miydin?",
-    "tags": ["bencil"]
-  },
-  {
-    "id": 53,
-    "text": "Hayatının geri kalanında yalan söyleyemezsin — her düşüncen ağzından çıkacak. Ama karşılığında herkes de sana karşı dürüst olacak. Kabul eder miydin?",
-    "tags": []
-  },
-  {
-    "id": 54,
-    "text": "Tüm insanlığın acısını 1 saniyeliğine hissedebilirsin — karşılığında dünya barışı gelecek ama o 1 saniye cehennem gibi olacak. Kabul eder miydin?",
-    "tags": []
-  },
-  {
-    "id": 55,
-    "text": "Bir düğmeye basarak eski sevgilinin yeni ilişkisini bitirebilirsin. Basar mıydın?",
-    "tags": ["cani", "bencil"]
   }
 ]

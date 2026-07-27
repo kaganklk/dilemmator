@@ -11,7 +11,11 @@ export default async function handler(req, res) {
   const { roomCode, playerId } = req.body || {};
 
   const room = await rooms.getRoom(roomCode);
-  if (!room || Number(playerId) !== room.hostId) {
+  const players = await rooms.getPlayers(roomCode);
+  const activePlayers = (players || []).filter(p => p.connected !== false);
+  const isHost = room && (Number(playerId) === Number(room.hostId) || (activePlayers.length <= 1 && activePlayers.some(p => Number(p.id) === Number(playerId))));
+
+  if (!isHost) {
     return res.status(403).json({ error: 'Yetkisiz işlem.' });
   }
 

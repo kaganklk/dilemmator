@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     name: result.name,
     color: result.color,
     answer: result.answer,
+    questionId: result.questionId,
     totalAnswered: result.totalAnswered,
     totalPlayers: result.totalPlayers,
   });

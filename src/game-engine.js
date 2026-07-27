@@ -81,7 +81,7 @@ export class GameEngine {
 
     // Odadaki toplam oyuncuları ve cevaplayanları paralel say
     const [playersRes, answersRes] = await Promise.all([
-      supabase.from('players').select('*', { count: 'exact', head: true }).eq('room_code', roomCode),
+      supabase.from('players').select('*', { count: 'exact', head: true }).eq('room_code', roomCode).eq('connected', true),
       supabase.from('answers').select('player_id').eq('room_code', roomCode).eq('question_id', currentQ.id.toString())
     ]);
 
@@ -98,6 +98,7 @@ export class GameEngine {
       name: player?.name || 'Anonim',
       color: player?.color || '#666',
       answer,
+      questionId: currentQ.id.toString(),
       totalAnswered,
       totalPlayers,
       allAnswered,
@@ -276,14 +277,17 @@ export class GameEngine {
       votes.push(pidStr);
     }
 
-    // Odadaki aktif oyuncu sayısını bul
-    const { count: totalPlayers } = await supabase
+    // Odadaki aktif (çevrimiçi) oyuncu listesini bul
+    const { data: activePlayers } = await supabase
       .from('players')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_code', roomCode);
+      .select('id')
+      .eq('room_code', roomCode)
+      .eq('connected', true);
 
-    const total = totalPlayers || 1;
-    const allVoted = votes.length >= total;
+    const activeIds = (activePlayers || []).map(p => p.id.toString());
+    const total = activeIds.length || 1;
+    const validVotes = votes.filter(v => activeIds.includes(v.toString()));
+    const allVoted = validVotes.length >= total;
 
     if (allVoted) {
       // Herkes oyladı (veya odada tek kişi var), odayı sıfırla ve lobiye döndür
@@ -298,7 +302,7 @@ export class GameEngine {
 
       return {
         reset: true,
-        votes: votes.length,
+        votes: validVotes.length,
         total
       };
     } else {
@@ -310,7 +314,7 @@ export class GameEngine {
 
       return {
         reset: false,
-        votes: votes.length,
+        votes: validVotes.length,
         total
       };
     }
