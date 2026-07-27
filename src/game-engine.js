@@ -196,65 +196,64 @@ export class GameEngine {
 
     const playersList = players.map(p => ({
       id: Number(p.id),
-      name: p.name,
-      color: p.color,
+      name: p.name || 'Anonim',
+      color: p.color || '#666',
       canililkYuzdesi: 0,
-      paragozPist: 0,
     }));
 
     const totalQuestions = questions ? questions.length : 10;
     const stats = {};
     for (const p of playersList) {
-      stats[p.id] = { yapardimCount: 0 };
+      stats[p.id] = { yapardimCount: 0, cani: 0, paragoz: 0, bencil: 0 };
     }
 
     if (allAnswers) {
       for (const ans of allAnswers) {
         const pid = Number(ans.player_id);
-        if (!stats[pid]) stats[pid] = { yapardimCount: 0 };
+        if (!stats[pid]) stats[pid] = { yapardimCount: 0, cani: 0, paragoz: 0, bencil: 0 };
         if (ans.answer === 'yapardim') {
           stats[pid].yapardimCount++;
+          const qObj = (questions || []).find(q => String(q.id) === String(ans.question_id)) || allDilemmas.find(q => String(q.id) === String(ans.question_id));
+          if (qObj && Array.isArray(qObj.tags)) {
+            if (qObj.tags.includes('cani')) stats[pid].cani++;
+            if (qObj.tags.includes('paragoz')) stats[pid].paragoz++;
+            if (qObj.tags.includes('bencil')) stats[pid].bencil++;
+          }
         }
       }
     }
 
-    let enCaniPlayer = null;
-    let enCaniScore = -1;
-
     for (const p of playersList) {
-      const st = stats[p.id] || { yapardimCount: 0 };
+      const st = stats[p.id] || { yapardimCount: 0, cani: 0, paragoz: 0, bencil: 0 };
       p.canililkYuzdesi = Math.round((st.yapardimCount / Math.max(1, totalQuestions)) * 100);
-      if (st.yapardimCount > enCaniScore) {
-        enCaniScore = st.yapardimCount;
-        enCaniPlayer = p;
-      }
     }
 
     playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
 
-    const awards = {};
-    if (enCaniPlayer && enCaniScore > 0) {
-      awards.enCani = {
-        name: enCaniPlayer.name || 'Anonim',
-        score: enCaniScore,
-        color: enCaniPlayer.color,
-      };
-    }
+    const buildAward = (categoryKey) => {
+      let maxScore = 0;
+      playersList.forEach(p => {
+        const score = stats[p.id]?.[categoryKey] || 0;
+        if (score > maxScore) maxScore = score;
+      });
+      if (maxScore <= 0) return undefined;
 
-    if (playersList.length > 1 && playersList[1].canililkYuzdesi > 0) {
-      awards.enParagoz = {
-        name: playersList[1].name || 'Anonim',
-        score: Math.round((playersList[1].canililkYuzdesi * totalQuestions) / 100),
-        color: playersList[1].color,
+      const winners = playersList.filter(p => (stats[p.id]?.[categoryKey] || 0) === maxScore);
+      const nameText = winners.map(w => w.name || 'Anonim').join(winners.length === 2 ? ' & ' : ', ');
+      return {
+        name: nameText,
+        score: maxScore,
+        color: winners[0]?.color || '#FF2D55',
       };
-    }
-    if (playersList.length > 2) {
-      awards.enBencil = {
-        name: playersList[playersList.length - 1].name || 'Anonim',
-        score: Math.round((playersList[playersList.length - 1].canililkYuzdesi * totalQuestions) / 100),
-        color: playersList[playersList.length - 1].color,
-      };
-    }
+    };
+
+    const awards = {};
+    const caniAward = buildAward('cani');
+    if (caniAward) awards.enCani = caniAward;
+    const paragozAward = buildAward('paragoz');
+    if (paragozAward) awards.enParagoz = paragozAward;
+    const bencilAward = buildAward('bencil');
+    if (bencilAward) awards.enBencil = bencilAward;
 
     return {
       players: playersList,

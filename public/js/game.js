@@ -456,25 +456,29 @@ async function showGameEnd(data) {
   showScene('end');
   renderGameEndUI(lastGameEndData);
 
-  // Açılır açılmaz Supabase'deki answers tablosundan o odaya ait TÜM cevapları tek seferlik çek
+  // Açılır açılmaz Supabase'deki answers tablosu ve odanın soru etiketlerini tek seferlik çek
   let allAnswers = null;
+  let roomQuestions = null;
   if (supabaseClient && roomCode) {
     try {
-      const { data: dbAnswers, error } = await supabaseClient
-        .from('answers')
-        .select('*')
-        .eq('room_code', roomCode);
-      if (!error && dbAnswers && dbAnswers.length > 0) {
-        allAnswers = dbAnswers;
+      const [ansRes, roomRes] = await Promise.all([
+        supabaseClient.from('answers').select('*').eq('room_code', roomCode),
+        supabaseClient.from('rooms').select('questions').eq('code', roomCode).maybeSingle()
+      ]);
+      if (!ansRes.error && ansRes.data && ansRes.data.length > 0) {
+        allAnswers = ansRes.data;
+      }
+      if (!roomRes.error && roomRes.data && Array.isArray(roomRes.data.questions)) {
+        roomQuestions = roomRes.data.questions;
       }
     } catch (err) {
       console.error("Oyun bitti cevap verisi çekilemedi:", err);
     }
   }
 
-  // Çekilen veriden kaç kişi hangi seçeneği seçti ve ödül istatistiklerini hesapla!
+  // Çekilen veriden gerçek tagleri ('cani', 'paragoz', 'bencil') sayarak ödülleri adilce hesapla!
   if (allAnswers && allAnswers.length > 0) {
-    const totalQCount = parseInt(document.getElementById('question-count')?.textContent || '10', 10);
+    const totalQCount = roomQuestions ? roomQuestions.length : parseInt(document.getElementById('question-count')?.textContent || '10', 10);
     const playerStats = {};
     const playersList = (lastGameEndData.players && lastGameEndData.players.length > 0 ? lastGameEndData.players : currentPlayers).map(p => ({
       id: Number(p.id),
@@ -483,12 +487,12 @@ async function showGameEnd(data) {
       canililkYuzdesi: 0
     }));
 
-    playersList.forEach(p => { playerStats[p.id] = { yapardim: 0, yapmazdim: 0 }; });
+    playersList.forEach(p => { playerStats[p.id] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 }; });
 
     allAnswers.forEach(ans => {
       const pid = Number(ans.player_id);
       if (!playerStats[pid]) {
-        playerStats[pid] = { yapardim: 0, yapmazdim: 0 };
+        playerStats[pid] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
         if (!playersList.some(p => p.id === pid)) {
           playersList.push({
             id: pid,
@@ -498,47 +502,51 @@ async function showGameEnd(data) {
           });
         }
       }
-      if (ans.answer === 'yapardim') playerStats[pid].yapardim++;
-      else playerStats[pid].yapmazdim++;
+      if (ans.answer === 'yapardim') {
+        playerStats[pid].yapardim++;
+        const qObj = (roomQuestions || []).find(q => String(q.id) === String(ans.question_id));
+        if (qObj && Array.isArray(qObj.tags)) {
+          if (qObj.tags.includes('cani')) playerStats[pid].cani++;
+          if (qObj.tags.includes('paragoz')) playerStats[pid].paragoz++;
+          if (qObj.tags.includes('bencil')) playerStats[pid].bencil++;
+        }
+      } else {
+        playerStats[pid].yapmazdim++;
+      }
     });
 
-    let enCaniPlayer = null;
-    let enCaniScore = -1;
-
     playersList.forEach(p => {
-      const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0 };
+      const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
       const totalAns = Math.max(1, st.yapardim + st.yapmazdim, totalQCount);
       p.canililkYuzdesi = Math.round((st.yapardim / totalAns) * 100);
-      if (st.yapardim > enCaniScore) {
-        enCaniScore = st.yapardim;
-        enCaniPlayer = p;
-      }
     });
 
     playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
 
+    const buildAward = (categoryKey) => {
+      let maxScore = 0;
+      playersList.forEach(p => {
+        const score = playerStats[p.id]?.[categoryKey] || 0;
+        if (score > maxScore) maxScore = score;
+      });
+      if (maxScore <= 0) return undefined;
+
+      const winners = playersList.filter(p => (playerStats[p.id]?.[categoryKey] || 0) === maxScore);
+      const nameText = winners.map(w => w.name || 'Anonim').join(winners.length === 2 ? ' & ' : ', ');
+      return {
+        name: nameText,
+        score: maxScore,
+        color: winners[0]?.color || '#FF2D55',
+      };
+    };
+
     const awards = {};
-    if (enCaniPlayer && enCaniScore > 0) {
-      awards.enCani = {
-        name: enCaniPlayer.name || 'Anonim',
-        score: enCaniScore,
-        color: enCaniPlayer.color,
-      };
-    }
-    if (playersList.length > 1 && playersList[1].canililkYuzdesi > 0) {
-      awards.enParagoz = {
-        name: playersList[1].name || 'Anonim',
-        score: Math.round((playersList[1].canililkYuzdesi * totalQCount) / 100),
-        color: playersList[1].color,
-      };
-    }
-    if (playersList.length > 2) {
-      awards.enBencil = {
-        name: playersList[playersList.length - 1].name || 'Anonim',
-        score: Math.round((playersList[playersList.length - 1].canililkYuzdesi * totalQCount) / 100),
-        color: playersList[playersList.length - 1].color,
-      };
-    }
+    const caniAward = buildAward('cani');
+    if (caniAward) awards.enCani = caniAward;
+    const paragozAward = buildAward('paragoz');
+    if (paragozAward) awards.enParagoz = paragozAward;
+    const bencilAward = buildAward('bencil');
+    if (bencilAward) awards.enBencil = bencilAward;
 
     lastGameEndData = {
       players: playersList,
