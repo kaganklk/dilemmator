@@ -1,9 +1,8 @@
-// src/game-engine.js — Supabase destekli Stateless Oyun mantığı + kişilik analizi
-import { createRequire } from 'module';
+import fs from 'fs';
 import { supabase } from './supabase-admin.js';
 
-const require = createRequire(import.meta.url);
-const allDilemmas = require('./dilemmas.json');
+const dilemmasPath = new URL('./dilemmas.json', import.meta.url);
+const allDilemmas = JSON.parse(fs.readFileSync(dilemmasPath, 'utf-8'));
 
 function shuffle(arr) {
   const a = [...arr];

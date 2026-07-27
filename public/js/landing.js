@@ -55,10 +55,11 @@ setInterval(fetchStats, 10000);
 
 // Error
 function showError(msg) {
+  if (!msg) return;
   const toast = document.getElementById('error-toast');
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
+  setTimeout(() => toast.classList.remove('show'), 5000);
 }
 
 // Handlers
@@ -74,7 +75,14 @@ window.handleCreate = async function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
     });
-    const data = await res.json();
+    
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      const text = await res.text();
+      throw new Error(`Sunucu yanıtı (500): Ortam değişkenleri (Environment variables) eklenmemiş veya Redeploy yapılmamış olabilir.`);
+    }
 
     if (res.ok && data.type === 'room_created') {
       sessionStorage.setItem('playerId', data.playerId);
@@ -83,12 +91,12 @@ window.handleCreate = async function() {
       sessionStorage.setItem('playerName', name || 'Anonim');
       window.location.href = `/game.html?room=${data.roomCode}`;
     } else {
-      showError(data.message || data.error || 'Oda oluşturulamadı.');
+      showError(data.message || data.error || `Oda oluşturulamadı (Hata: ${res.status})`);
       btn.textContent = 'Oda Oluştur';
       btn.disabled = false;
     }
   } catch (err) {
-    showError('Bağlantı hatası, tekrar dene.');
+    showError(err.message || 'Bağlantı hatası, tekrar dene.');
     btn.textContent = 'Oda Oluştur';
     btn.disabled = false;
   }
@@ -114,7 +122,13 @@ window.handleJoin = async function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, code })
     });
-    const data = await res.json();
+    
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new Error('Sunucu ile bağlantı koptu veya yapılandıma hatası (500).');
+    }
 
     if (res.ok && data.type === 'room_joined') {
       sessionStorage.setItem('playerId', data.playerId);
@@ -128,7 +142,7 @@ window.handleJoin = async function() {
       btn.disabled = false;
     }
   } catch (err) {
-    showError('Bağlantı hatası, tekrar dene.');
+    showError(err.message || 'Bağlantı hatası, tekrar dene.');
     btn.textContent = 'Odaya Gir';
     btn.disabled = false;
   }

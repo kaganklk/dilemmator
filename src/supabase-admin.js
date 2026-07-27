@@ -1,12 +1,22 @@
 // src/supabase-admin.js — Supabase Sunucu Client ve Realtime Broadcast Helper
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-// Sunucu tarafında SERVICE_ROLE_KEY tercih edilir; yoksa ANON_KEY ile çalışır (local test için)
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+// Sunucu tarafında SERVICE_ROLE_KEY tercih edilir; yoksa ANON_KEY ile çalışır
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'placeholder-api-key';
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.warn('⚠️ SUPABASE_URL veya SUPABASE_KEY tanımı eksik. Lütfen ortam değişkenlerini kontrol edin.');
+if (!process.env.SUPABASE_URL || (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY)) {
+  console.warn('⚠️ SUPABASE_URL veya SUPABASE_KEY tanımı eksik. Lütfen Vercel ortam değişkenlerini (Environment Variables) kontrol edin.');
+}
+
+export function getSupabaseError() {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_URL.startsWith('http')) {
+    return 'Vercel ortam değişkenleri eksik: SUPABASE_URL tanınamadı! Vercel Settings -> Environment Variables kontrol et ve mutlaka Redeploy yap.';
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY) {
+    return 'Vercel ortam değişkenleri eksik: SUPABASE_ANON_KEY veya SERVICE_ROLE_KEY tanınamadı! Ayarladıktan sonra mutlaka Redeploy yap.';
+  }
+  return null;
 }
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -18,14 +28,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 /**
  * Supabase Realtime Broadcast REST API üzerinden belirtilen odaya gerçek zamanlı etkinlik gönderir.
- * WebSocket bağlantısı gerektirmeden HTTP POST üzerinden anında iletir (Serverless için en ideal çözüm).
- * 
- * @param {string} roomCode Oda kodu
- * @param {string} eventType Olay tipi (örn. 'player_joined', 'game_started')
- * @param {object} payload Gönderilecek ek veri (type: eventType otomatik eklenir)
  */
 export async function broadcast(roomCode, eventType, payload = {}) {
-  if (!SUPABASE_URL || !SUPABASE_KEY || !roomCode) return;
+  if (getSupabaseError() || !roomCode) return;
   const baseUrl = SUPABASE_URL.replace(/\/$/, '');
   const url = `${baseUrl}/realtime/v1/api/broadcast`;
 

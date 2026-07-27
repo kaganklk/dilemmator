@@ -1,5 +1,5 @@
 // src/rooms.js — Supabase destekli Oda ve Oyuncu yönetimi
-import { supabase } from './supabase-admin.js';
+import { supabase, getSupabaseError } from './supabase-admin.js';
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // I,O,0,1 hariç
@@ -72,9 +72,11 @@ export class RoomManager {
   }
 
   async createRoom(hostName) {
+    const configErr = getSupabaseError();
+    if (configErr) return { error: configErr };
+
     let code;
     let attempts = 0;
-    // Benzersiz kod oluştur
     while (attempts < 10) {
       code = generateCode();
       const existing = await this.getRoom(code);
@@ -99,7 +101,7 @@ export class RoomManager {
 
     if (roomErr) {
       console.error('Oda oluşturma hatası:', roomErr);
-      return { error: 'Oda oluşturulamadı: veritabanı hatası.' };
+      return { error: `Supabase Hata (rooms): ${roomErr.message || JSON.stringify(roomErr)}` };
     }
 
     // Oyuncuyu ekle
@@ -113,7 +115,7 @@ export class RoomManager {
 
     if (playerErr) {
       console.error('Host oyuncu ekleme hatası:', playerErr);
-      return { error: 'Host oyuncu eklenemedi.' };
+      return { error: `Supabase Hata (players): ${playerErr.message || JSON.stringify(playerErr)}` };
     }
 
     const playersInfo = [
@@ -129,8 +131,11 @@ export class RoomManager {
   }
 
   async joinRoom(code, playerName) {
+    const configErr = getSupabaseError();
+    if (configErr) return { error: configErr };
+
     const room = await this.getRoom(code);
-    if (!room) return { error: 'Oda bulunamadı.' };
+    if (!room) return { error: 'Oda bulunamadı veya kapandı.' };
 
     const existingPlayers = await this.getPlayers(code);
     if (existingPlayers.length >= 15) return { error: 'Oda dolu (maks 15 kişi).' };
@@ -149,7 +154,7 @@ export class RoomManager {
 
     if (error) {
       console.error('Odayaılma hatası:', error);
-      return { error: 'Odaya katılınamadı: veritabanı hatası.' };
+      return { error: `Odaya girilemedi: ${error.message || JSON.stringify(error)}` };
     }
 
     const updatedPlayers = [...existingPlayers, { id: playerId, name: nameStr, color, connected: true }];
@@ -166,13 +171,15 @@ export class RoomManager {
   }
 
   async rejoinRoom(code, playerName) {
+    const configErr = getSupabaseError();
+    if (configErr) return { error: configErr };
+
     const room = await this.getRoom(code);
     if (!room) return { error: 'Oda bulunamadı.' };
 
     const players = await this.getPlayers(code);
     const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
 
-    // İsme göre mevcut oyuncuyu bul
     const existing = players.find(p => p.name === nameStr);
     if (existing) {
       if (!existing.connected) {
@@ -190,7 +197,6 @@ export class RoomManager {
       };
     }
 
-    // Bulunamadıysa yeni oyuncu olarak ekle
     return this.joinRoom(code, playerName);
   }
 
