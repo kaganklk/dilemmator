@@ -1,4 +1,4 @@
-// landing.js — Ana sayfa mantığı
+// landing.js — Ana sayfa mantığı (Supabase & Vercel API uyumlu)
 
 const previewDilemmas = [
   "Önünde bir buton var. Her bastığında bugüne kadar iletişime geçtiğin herhangi biri ölecek — sokakta yol sorduğun biri de olabilir, annen de. Ama karşılığında 1 milyar dolar alacaksın. Butona basar mıydın?",
@@ -43,9 +43,11 @@ setInterval(() => {
 async function fetchStats() {
   try {
     const res = await fetch('/api/stats');
-    const data = await res.json();
-    document.getElementById('s-players').textContent = data.players;
-    document.getElementById('s-rooms').textContent = data.rooms;
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('s-players').textContent = data.players || 0;
+      document.getElementById('s-rooms').textContent = data.rooms || 0;
+    }
   } catch (e) { /* ignore */ }
 }
 fetchStats();
@@ -59,69 +61,40 @@ function showError(msg) {
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-// WebSocket
-let ws = null;
-
-function connectWS() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${location.host}`);
-
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-
-    switch (msg.type) {
-      case 'room_created':
-        // Odaya yönlendir
-        sessionStorage.setItem('playerId', msg.playerId);
-        sessionStorage.setItem('roomCode', msg.roomCode);
-        sessionStorage.setItem('isHost', 'true');
-        sessionStorage.setItem('playerName', document.getElementById('create-name').value.trim() || 'Anonim');
-        window.location.href = `/game.html?room=${msg.roomCode}`;
-        break;
-
-      case 'room_joined':
-        sessionStorage.setItem('playerId', msg.playerId);
-        sessionStorage.setItem('roomCode', msg.roomCode);
-        sessionStorage.setItem('isHost', 'false');
-        sessionStorage.setItem('playerName', document.getElementById('join-name').value.trim() || 'Anonim');
-        window.location.href = `/game.html?room=${msg.roomCode}`;
-        break;
-
-      case 'error':
-        showError(msg.message);
-        // Butonları geri aç
-        document.getElementById('create-btn').textContent = 'Oda Oluştur';
-        document.getElementById('create-btn').disabled = false;
-        document.getElementById('join-btn').textContent = 'Odaya Gir';
-        document.getElementById('join-btn').disabled = false;
-        break;
-    }
-  };
-
-  ws.onclose = () => {
-    setTimeout(connectWS, 2000);
-  };
-}
-
-connectWS();
-
 // Handlers
-window.handleCreate = function() {
+window.handleCreate = async function() {
   const name = document.getElementById('create-name').value.trim();
   const btn = document.getElementById('create-btn');
   btn.textContent = 'Oluşturuluyor...';
   btn.disabled = true;
 
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'create_room', name }));
-  } else {
-    showError('Bağlantı kurulamadı, tekrar dene.');
+  try {
+    const res = await fetch('/api/create-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.type === 'room_created') {
+      sessionStorage.setItem('playerId', data.playerId);
+      sessionStorage.setItem('roomCode', data.roomCode);
+      sessionStorage.setItem('isHost', 'true');
+      sessionStorage.setItem('playerName', name || 'Anonim');
+      window.location.href = `/game.html?room=${data.roomCode}`;
+    } else {
+      showError(data.message || data.error || 'Oda oluşturulamadı.');
+      btn.textContent = 'Oda Oluştur';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showError('Bağlantı hatası, tekrar dene.');
     btn.textContent = 'Oda Oluştur';
     btn.disabled = false;
   }
 };
 
-window.handleJoin = function() {
+window.handleJoin = async function() {
   const name = document.getElementById('join-name').value.trim();
   const code = document.getElementById('code-input').value.trim().toUpperCase();
   const btn = document.getElementById('join-btn');
@@ -135,10 +108,27 @@ window.handleJoin = function() {
   btn.textContent = 'Katılınıyor...';
   btn.disabled = true;
 
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type: 'join_room', name, code }));
-  } else {
-    showError('Bağlantı kurulamadı, tekrar dene.');
+  try {
+    const res = await fetch('/api/join-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, code })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.type === 'room_joined') {
+      sessionStorage.setItem('playerId', data.playerId);
+      sessionStorage.setItem('roomCode', data.roomCode);
+      sessionStorage.setItem('isHost', data.isHost ? 'true' : 'false');
+      sessionStorage.setItem('playerName', name || 'Anonim');
+      window.location.href = `/game.html?room=${data.roomCode}`;
+    } else {
+      showError(data.message || data.error || 'Odaya girilemedi.');
+      btn.textContent = 'Odaya Gir';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showError('Bağlantı hatası, tekrar dene.');
     btn.textContent = 'Odaya Gir';
     btn.disabled = false;
   }
