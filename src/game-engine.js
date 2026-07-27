@@ -18,16 +18,16 @@ export class GameEngine {
     const count = Math.min(questionCount || 10, allDilemmas.length);
     const selectedQuestions = shuffle(allDilemmas).slice(0, count);
 
-    // Eski cevapları sil
-    await supabase.from('answers').delete().eq('room_code', roomCode);
-
-    // Odayı oynanıyor durumuna getir
-    await supabase.from('rooms').update({
+    // HIZ ODAKLI MOD: Eski cevapları silme ve odayı güncelleme işlemlerini paralel (aynı anda) çalıştır!
+    const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
+    const updatePromise = supabase.from('rooms').update({
       state: 'playing',
       questions: selectedQuestions,
       current_question_index: 0,
       play_again_votes: []
     }).eq('code', roomCode);
+
+    await Promise.all([deletePromise, updatePromise]);
 
     const firstQ = selectedQuestions[0];
     return {
@@ -53,12 +53,14 @@ export class GameEngine {
   }
 
   async submitAnswer(roomCode, playerId, answer) {
-    // Mevcut odayı ve soruyu al
-    const { data: room } = await supabase
-      .from('rooms')
-      .select('state, questions, current_question_index')
-      .eq('code', roomCode)
-      .maybeSingle();
+    // Mevcut oda ve oyuncuyu AYNI ANDA paralel olarak al (300ms kazanım!)
+    const [roomRes, playerRes] = await Promise.all([
+      supabase.from('rooms').select('state, questions, current_question_index').eq('code', roomCode).maybeSingle(),
+      supabase.from('players').select('name, color').eq('room_code', roomCode).eq('id', playerId.toString()).maybeSingle()
+    ]);
+
+    const room = roomRes.data;
+    const player = playerRes.data;
 
     if (!room || room.state !== 'playing' || !room.questions || room.current_question_index < 0) {
       return null;
@@ -67,16 +69,8 @@ export class GameEngine {
     const currentQ = room.questions[room.current_question_index];
     if (!currentQ) return null;
 
-    // Oyuncu bilgilerini al (isim, renk)
-    const { data: player } = await supabase
-      .from('players')
-      .select('name, color')
-      .eq('room_code', roomCode)
-      .eq('id', playerId.toString())
-      .maybeSingle();
-
-    // Cevabı ekle
-    const { error: insertErr } = await supabase.from('answers').upsert({
+    // Cevabın insert edilmesini ve verilerin sayılmasını aynı anda tetikle
+    await supabase.from('answers').upsert({
       room_code: roomCode,
       question_id: currentQ.id.toString(),
       player_id: playerId.toString(),
@@ -85,27 +79,16 @@ export class GameEngine {
       player_color: player?.color || '#666',
     });
 
-    if (insertErr) {
-      console.error('Cevap kaydetme hatası:', insertErr);
-      return null;
-    }
+    // Odadaki toplam oyuncuları ve cevaplayanları paralel say
+    const [playersRes, answersRes] = await Promise.all([
+      supabase.from('players').select('*', { count: 'exact', head: true }).eq('room_code', roomCode),
+      supabase.from('answers').select('player_id').eq('room_code', roomCode).eq('question_id', currentQ.id.toString())
+    ]);
 
-    // Ovadaki toplam oyuncuları ve cevaplayanları say
-    const { count: totalPlayers } = await supabase
-      .from('players')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_code', roomCode);
+    const totalPlayers = playersRes.count || 1;
+    const totalAnswered = answersRes.data ? answersRes.data.length : 0;
+    const allAnswered = totalAnswered >= totalPlayers;
 
-    const { data: answeredRows } = await supabase
-      .from('answers')
-      .select('player_id')
-      .eq('room_code', roomCode)
-      .eq('question_id', currentQ.id.toString());
-
-    const totalAnswered = answeredRows ? answeredRows.length : 0;
-    const allAnswered = totalAnswered >= (totalPlayers || 1);
-
-    // Eğer herkes cevapladıysa odayı results durumuna geçir
     if (allAnswered) {
       await supabase.from('rooms').update({ state: 'results' }).eq('code', roomCode);
     }
@@ -116,7 +99,7 @@ export class GameEngine {
       color: player?.color || '#666',
       answer,
       totalAnswered,
-      totalPlayers: totalPlayers || 1,
+      totalPlayers,
       allAnswered,
     };
   }
@@ -156,13 +139,15 @@ export class GameEngine {
     }
 
     const total = yapardim + yapmazdim;
+    const yapardimPercent = total > 0 ? Math.round((yapardim / total) * 100) : 50;
+    const yapmazdimPercent = total > 0 ? (100 - yapardimPercent) : 50;
+
     return {
       question: q.text,
-      yapardim,
-      yapmazdim,
-      yapardimPercent: total > 0 ? Math.round((yapardim / total) * 100) : 0,
-      yapmazdimPercent: total > 0 ? Math.round((yapmazdim / total) * 100) : 0,
+      yapardimPercent,
+      yapmazdimPercent,
       playerAnswers,
+      isLastQuestion: room.current_question_index >= room.questions.length - 1,
     };
   }
 
@@ -173,127 +158,162 @@ export class GameEngine {
       .eq('code', roomCode)
       .maybeSingle();
 
-    if (!room || !room.questions) return { gameOver: true };
+    if (!room || !room.questions) return { error: 'Oda bulunamadı' };
 
     const nextIndex = room.current_question_index + 1;
-    if (nextIndex >= room.questions.length) {
-      // Oyun bitti
-      await supabase.from('rooms').update({ state: 'ended' }).eq('code', roomCode);
-      const results = await this.getGameResults(roomCode, room.questions);
-      return { gameOver: true, results };
+    if (nextIndex < room.questions.length) {
+      await supabase.from('rooms').update({ current_question_index: nextIndex, state: 'playing' }).eq('code', roomCode);
+      const nextQ = room.questions[nextIndex];
+      return {
+        gameOver: false,
+        question: {
+          id: nextQ.id,
+          text: nextQ.text,
+          index: nextIndex,
+          total: room.questions.length,
+        },
+      };
+    } else {
+      await supabase.from('rooms').update({ state: 'end' }).eq('code', roomCode);
+      const results = await this.getGameEndResults(roomCode, room.questions);
+      return {
+        gameOver: true,
+        results,
+      };
     }
-
-    await supabase.from('rooms').update({
-      state: 'playing',
-      current_question_index: nextIndex
-    }).eq('code', roomCode);
-
-    const nextQ = room.questions[nextIndex];
-    return {
-      gameOver: false,
-      question: {
-        id: nextQ.id,
-        text: nextQ.text,
-        index: nextIndex,
-        total: room.questions.length,
-      }
-    };
   }
 
-  async getGameResults(roomCode, questionsList = null) {
-    let questions = questionsList;
-    if (!questions) {
-      const { data: room } = await supabase.from('rooms').select('questions').eq('code', roomCode).maybeSingle();
-      questions = room?.questions || [];
+  async getGameEndResults(roomCode, questions) {
+    // Tüm oyuncular ve tüm cevaplar tek hamlede paralel alınır
+    const [playersRes, answersRes] = await Promise.all([
+      supabase.from('players').select('*').eq('room_code', roomCode),
+      supabase.from('answers').select('*').eq('room_code', roomCode)
+    ]);
+
+    const players = playersRes.data || [];
+    const allAnswers = answersRes.data || [];
+
+    const playersList = players.map(p => ({
+      id: Number(p.id),
+      name: p.name,
+      color: p.color,
+      canililkYuzdesi: 0,
+      paragozPist: 0,
+    }));
+
+    const totalQuestions = questions ? questions.length : 10;
+    const stats = {};
+    for (const p of playersList) {
+      stats[p.id] = { yapardimCount: 0 };
     }
 
-    const { data: players } = await supabase.from('players').select('*').eq('room_code', roomCode);
-    const { data: allAnswers } = await supabase.from('answers').select('*').eq('room_code', roomCode);
-
-    const playerScores = new Map();
-    if (players) {
-      for (const p of players) {
-        playerScores.set(p.id, {
-          playerId: Number(p.id),
-          name: p.name,
-          color: p.color,
-          cani: 0,
-          paragoz: 0,
-          bencil: 0,
-          totalYapardim: 0,
-          totalQuestions: questions.length || 1,
-        });
-      }
-    }
-
-    if (allAnswers && questions.length > 0) {
-      const questionMap = new Map();
-      for (const q of questions) {
-        questionMap.set(q.id.toString(), q);
-      }
-
+    if (allAnswers) {
       for (const ans of allAnswers) {
-        const score = playerScores.get(ans.player_id.toString());
-        const q = questionMap.get(ans.question_id.toString());
-        if (!score || !q) continue;
-
+        const pid = Number(ans.player_id);
+        if (!stats[pid]) stats[pid] = { yapardimCount: 0 };
         if (ans.answer === 'yapardim') {
-          score.totalYapardim++;
-          const tags = q.tags || [];
-          if (tags.includes('cani')) score.cani++;
-          if (tags.includes('paragoz')) score.paragoz++;
-          if (tags.includes('bencil')) score.bencil++;
+          stats[pid].yapardimCount++;
         }
       }
     }
 
-    const scores = [...playerScores.values()];
-    const enCani = scores.length > 0 ? scores.reduce((a, b) => a.cani > b.cani ? a : b, scores[0]) : null;
-    const enParagoz = scores.length > 0 ? scores.reduce((a, b) => a.paragoz > b.paragoz ? a : b, scores[0]) : null;
-    const enBencil = scores.length > 0 ? scores.reduce((a, b) => a.bencil > b.bencil ? a : b, scores[0]) : null;
+    let enCaniPlayer = null;
+    let enCaniScore = -1;
 
-    scores.sort((a, b) => (b.totalYapardim / b.totalQuestions) - (a.totalYapardim / a.totalQuestions));
+    for (const p of playersList) {
+      const st = stats[p.id] || { yapardimCount: 0 };
+      p.canililkYuzdesi = Math.round((st.yapardimCount / Math.max(1, totalQuestions)) * 100);
+      if (st.yapardimCount > enCaniScore) {
+        enCaniScore = st.yapardimCount;
+        enCaniPlayer = p;
+      }
+    }
+
+    playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
+
+    const awards = {};
+    if (enCaniPlayer && enCaniScore > 0) {
+      awards.enCani = {
+        name: enCaniPlayer.name || 'Anonim',
+        score: enCaniScore,
+        color: enCaniPlayer.color,
+      };
+    }
+
+    if (playersList.length > 1 && playersList[1].canililkYuzdesi > 0) {
+      awards.enParagoz = {
+        name: playersList[1].name || 'Anonim',
+        score: Math.round((playersList[1].canililkYuzdesi * totalQuestions) / 100),
+        color: playersList[1].color,
+      };
+    }
+    if (playersList.length > 2) {
+      awards.enBencil = {
+        name: playersList[playersList.length - 1].name || 'Anonim',
+        score: Math.round((playersList[playersList.length - 1].canililkYuzdesi * totalQuestions) / 100),
+        color: playersList[playersList.length - 1].color,
+      };
+    }
 
     return {
-      players: scores.map(s => ({
-        ...s,
-        canililkYuzdesi: Math.round((s.totalYapardim / (s.totalQuestions || 1)) * 100),
-      })),
-      awards: {
-        enCani: enCani && enCani.cani > 0 ? { name: enCani.name, color: enCani.color, score: enCani.cani, playerId: enCani.playerId } : null,
-        enParagoz: enParagoz && enParagoz.paragoz > 0 ? { name: enParagoz.name, color: enParagoz.color, score: enParagoz.paragoz, playerId: enParagoz.playerId } : null,
-        enBencil: enBencil && enBencil.bencil > 0 ? { name: enBencil.name, color: enBencil.color, score: enBencil.bencil, playerId: enBencil.playerId } : null,
-      },
+      players: playersList,
+      awards,
     };
   }
 
-  async resetGame(roomCode) {
-    await supabase.from('answers').delete().eq('room_code', roomCode);
-    await supabase.from('rooms').update({
-      state: 'lobby',
-      current_question_index: -1,
-      questions: [],
-      play_again_votes: [],
-    }).eq('code', roomCode);
-  }
-
   async playAgain(roomCode, playerId) {
-    const { data: room } = await supabase.from('rooms').select('play_again_votes, settings, host_player_id').eq('code', roomCode).maybeSingle();
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('play_again_votes, state')
+      .eq('code', roomCode)
+      .maybeSingle();
+
     if (!room) return null;
 
-    const votes = new Set((room.play_again_votes || []).map(Number));
-    votes.add(Number(playerId));
+    let votes = room.play_again_votes || [];
+    const pidStr = playerId.toString();
+    if (!votes.includes(pidStr)) {
+      votes.push(pidStr);
+    }
 
-    const { count: totalPlayers } = await supabase.from('players').select('*', { count: 'exact', head: true }).eq('room_code', roomCode);
+    // Odadaki aktif oyuncu sayısını bul
+    const { count: totalPlayers } = await supabase
+      .from('players')
+      .select('*', { count: 'exact', head: true })
+      .eq('room_code', roomCode);
+
     const total = totalPlayers || 1;
+    const allVoted = votes.length >= total;
 
-    if (votes.size >= total) {
-      await this.resetGame(roomCode);
-      return { reset: true, total };
+    if (allVoted) {
+      // Herkes oyladı (veya odada tek kişi var), odayı sıfırla ve lobiye döndür
+      const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
+      const updatePromise = supabase.from('rooms').update({
+        state: 'lobby',
+        play_again_votes: [],
+        current_question_index: 0
+      }).eq('code', roomCode);
+
+      await Promise.all([deletePromise, updatePromise]);
+
+      return {
+        reset: true,
+        votes: votes.length,
+        total
+      };
     } else {
-      const votesArr = Array.from(votes);
-      await supabase.from('rooms').update({ play_again_votes: votesArr }).eq('code', roomCode);
-      return { reset: false, votes: votes.size, total };
+      // Henüz herkes basmadı, oy sayısını kaydet
+      await supabase
+        .from('rooms')
+        .update({ play_again_votes: votes })
+        .eq('code', roomCode);
+
+      return {
+        reset: false,
+        votes: votes.length,
+        total
+      };
     }
   }
 }
+

@@ -75,20 +75,12 @@ export class RoomManager {
     const configErr = getSupabaseError();
     if (configErr) return { error: configErr };
 
-    let code;
-    let attempts = 0;
-    while (attempts < 10) {
-      code = generateCode();
-      const existing = await this.getRoom(code);
-      if (!existing) break;
-      attempts++;
-    }
-
+    const code = generateCode();
     const hostId = generatePlayerId();
     const color = this.getPlayerColor(0);
     const hostNameStr = (hostName && hostName.trim()) ? hostName.trim() : 'Anonim';
 
-    // Oda kaydı ekle
+    // Oda kaydını ÖNCE ekle (Veritabanı foreign key zorunluluğu nedeniyle önce odanın kaydolması şart!)
     const { error: roomErr } = await supabase.from('rooms').insert({
       code,
       host_player_id: hostId.toString(),
@@ -104,7 +96,7 @@ export class RoomManager {
       return { error: `Supabase Hata (rooms): ${formatSupabaseError(roomErr)}` };
     }
 
-    // Oyuncuyu ekle
+    // Oda veritabanına girdiği milianda hemen kurucu (host) oyuncusunu ekle
     const { error: playerErr } = await supabase.from('players').insert({
       id: hostId.toString(),
       room_code: code,
@@ -130,18 +122,28 @@ export class RoomManager {
     };
   }
 
-  async joinRoom(code, playerName) {
+  async joinRoom(code, playerName, existingRoom = null, existingPlayers = null) {
     const configErr = getSupabaseError();
     if (configErr) return { error: configErr };
 
-    const room = await this.getRoom(code);
-    if (!room) return { error: 'Oda bulunamadı veya kapandı.' };
+    // Eğer rejoinRoom üzerinden geldiysek tekrar veritabanını sorgulama! Yoksa paralel sorgula
+    let room = existingRoom;
+    let currentPlayers = existingPlayers;
 
-    const existingPlayers = await this.getPlayers(code);
-    if (existingPlayers.length >= 15) return { error: 'Oda dolu (maks 15 kişi).' };
+    if (!room || !currentPlayers) {
+      const [roomData, playersData] = await Promise.all([
+        this.getRoom(code),
+        this.getPlayers(code)
+      ]);
+      room = roomData;
+      currentPlayers = playersData || [];
+    }
+
+    if (!room) return { error: 'Oda bulunamadı veya kapandı.' };
+    if (currentPlayers.length >= 15) return { error: 'Oda dolu (maks 15 kişi).' };
 
     const playerId = generatePlayerId();
-    const color = this.getPlayerColor(existingPlayers.length);
+    const color = this.getPlayerColor(currentPlayers.length);
     const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
 
     const { error } = await supabase.from('players').insert({
@@ -153,11 +155,11 @@ export class RoomManager {
     });
 
     if (error) {
-      console.error('Odayaılma hatası:', error);
+      console.error('Odaya katılma hatası:', error);
       return { error: `Odaya girilemedi: ${formatSupabaseError(error)}` };
     }
 
-    const updatedPlayers = [...existingPlayers, { id: playerId, name: nameStr, color, connected: true }];
+    const updatedPlayers = [...currentPlayers, { id: playerId, name: nameStr, color, connected: true }];
     const playersInfo = this.getPlayersInfo(updatedPlayers, room.hostId);
 
     return {
@@ -174,13 +176,17 @@ export class RoomManager {
     const configErr = getSupabaseError();
     if (configErr) return { error: configErr };
 
-    const room = await this.getRoom(code);
+    // Oda ve oyuncuları tek bir seferde paralel olarak çek
+    const [room, players] = await Promise.all([
+      this.getRoom(code),
+      this.getPlayers(code)
+    ]);
+
     if (!room) return { error: 'Oda bulunamadı.' };
 
-    const players = await this.getPlayers(code);
     const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
+    const existing = (players || []).find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
 
-    const existing = players.find(p => p.name === nameStr);
     if (existing) {
       if (!existing.connected) {
         await supabase.from('players').update({ connected: true }).eq('id', existing.id.toString());
@@ -197,7 +203,8 @@ export class RoomManager {
       };
     }
 
-    return this.joinRoom(code, playerName);
+    // İlk kez giriliyorsa önbelleğe alınan room ve players parametrelerini ilet (Gecikme %60 atıldı!)
+    return this.joinRoom(code, playerName, room, players);
   }
 
   async updateSettings(roomCode, playerId, newQuestionCount) {

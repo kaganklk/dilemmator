@@ -17,7 +17,6 @@ function sanitizeKey(key) {
 }
 
 const SUPABASE_URL = sanitizeUrl(process.env.SUPABASE_URL);
-// Sunucu tarafında SERVICE_ROLE_KEY tercih edilir; yoksa ANON_KEY ile çalışır
 const SUPABASE_KEY = sanitizeKey(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
 
 if (!process.env.SUPABASE_URL || (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY)) {
@@ -34,9 +33,6 @@ export function getSupabaseError() {
   return null;
 }
 
-/**
- * Node.js fetch hatalarını (özellikle DNS, tırnak işareti veya geçersiz alan adı sorunları) net biçimde açıklar.
- */
 export function formatSupabaseError(err) {
   if (!err) return 'Bilinmeyen hata';
   const cause = err.cause;
@@ -60,15 +56,20 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 /**
  * Supabase Realtime Broadcast REST API üzerinden belirtilen odaya gerçek zamanlı etkinlik gönderir.
+ * ÖNEMLİ: Supabase REST API yapısı mutlaka "messages" dizisi içinde ve "topic" parametresiyle olmalıdır!
  */
 export async function broadcast(roomCode, eventType, payload = {}) {
   if (getSupabaseError() || !roomCode) return;
   const url = `${SUPABASE_URL}/realtime/v1/api/broadcast`;
 
   const bodyData = {
-    channel: `room:${roomCode}`,
-    event: eventType,
-    payload: { type: eventType, ...payload },
+    messages: [
+      {
+        topic: `room:${roomCode}`,
+        event: eventType,
+        payload: { type: eventType, ...payload },
+      }
+    ]
   };
 
   try {

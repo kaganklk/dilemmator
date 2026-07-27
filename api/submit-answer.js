@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   const result = await engine.submitAnswer(roomCode, playerId, answer);
   if (!result) return res.status(400).json({ error: 'Geçersiz cevap veya oda oyunda değil.' });
 
-  // Herkes anında görsün
+  // Herkes anında görsün diye canlı cevap bilgisini yayınla
   await broadcast(roomCode, 'player_answered', {
     playerId: result.playerId,
     name: result.name,
@@ -21,13 +21,14 @@ export default async function handler(req, res) {
     totalPlayers: result.totalPlayers,
   });
 
-  // Herkes cevapladıysa sonuçları göster
+  let qResults = null;
+  // Herkes cevapladıysa sonuçları hesapla, hem yayınla hem doğrudan JSON içinde geri döndür!
   if (result.allAnswered) {
-    const qResults = await engine.getQuestionResults(roomCode);
+    qResults = await engine.getQuestionResults(roomCode);
     if (qResults) {
       await broadcast(roomCode, 'question_results', qResults);
     }
   }
 
-  return res.status(200).json({ success: true, ...result });
+  return res.status(200).json({ success: true, ...result, qResults });
 }

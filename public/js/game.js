@@ -1,4 +1,4 @@
-// game.js — Oyun ekranı mantığı (Supabase Realtime & Vercel Serverless API)
+// game.js — Yıldırım Hızı (Lightning Fast & Optimistic UI) Destekli Oyun Mantığı
 
 const roomCode = new URLSearchParams(location.search).get('room');
 const myPlayerId = parseInt(sessionStorage.getItem('playerId'), 10);
@@ -9,8 +9,10 @@ if (!roomCode || isNaN(myPlayerId)) {
 }
 
 let supabaseClient = null;
-let currentPlayers = []; // mevcut oyuncu listesi
+let currentPlayers = []; 
 let hasAnswered = false;
+let currentQuestionId = null;
+let currentResultQuestionText = null;
 
 // ── Scene management ──
 function showScene(name) {
@@ -18,11 +20,7 @@ function showScene(name) {
   const scene = document.getElementById('scene-' + name);
   if (scene) {
     scene.classList.add('active');
-    scene.style.animation = 'none';
-    scene.offsetHeight; // reflow
-    scene.style.animation = '';
   }
-
   const sidebar = document.querySelector('.players-sidebar');
   if (sidebar) {
     sidebar.style.display = (name === 'end') ? 'none' : '';
@@ -52,7 +50,6 @@ function updateSidebar(players) {
   const count = document.getElementById('sidebar-count');
 
   count.textContent = currentPlayers.length;
-
   list.innerHTML = currentPlayers.map(p => `
     <div class="sidebar-player ${p.connected !== false ? '' : 'disconnected'}">
       <div class="sidebar-avatar" style="background:${p.color || '#666'}">${(p.name || '?').charAt(0).toUpperCase()}</div>
@@ -112,7 +109,13 @@ window.changeQuestionCount = async function(delta) {
 // ── Question rendering ──
 function showQuestion(question) {
   if (!question) return;
+  if (currentQuestionId === question.id && document.getElementById('scene-question')?.classList.contains('active')) {
+    return;
+  }
+  currentQuestionId = question.id;
+  currentResultQuestionText = null;
   hasAnswered = false;
+  
   showScene('question');
 
   document.getElementById('q-counter').textContent = `Soru ${(question.index || 0) + 1} / ${question.total || 10}`;
@@ -126,7 +129,7 @@ function showQuestion(question) {
   document.getElementById('answer-count').textContent = '';
 }
 
-// ── Submit answer ──
+// ── Submit answer (Anında Görsel Tepki ve Sonuç Yönlendirmesi) ──
 window.submitAnswer = async function(answer) {
   if (hasAnswered) return;
   hasAnswered = true;
@@ -136,19 +139,44 @@ window.submitAnswer = async function(answer) {
   selected.classList.add('selected');
   other.classList.add('not-selected');
 
+  const myPlayer = currentPlayers.find(p => Number(p.id) === Number(myPlayerId)) || { name: 'Siz', color: '#30D158' };
+  addLiveAnswer({
+    playerId: myPlayerId,
+    name: myPlayer.name,
+    color: myPlayer.color,
+    answer,
+    totalPlayers: currentPlayers.length
+  });
+
   try {
-    await fetch('/api/submit-answer', {
+    const res = await fetch('/api/submit-answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomCode, playerId: myPlayerId, answer })
     });
+    const data = await res.json();
+    if (res.ok && data.allAnswered && data.qResults) {
+      // Broadcast gecikmesine dahi maruz kalmadan ekranı anında sonuç paneline taşı!
+      const delay = (currentPlayers.length <= 1) ? 0 : 600;
+      setTimeout(() => {
+        showResults(data.qResults);
+      }, delay);
+    }
   } catch (err) {
     showError('Cevap gönderilemedi, tekrar denenebilir.');
+    hasAnswered = false;
+    selected.classList.remove('selected');
+    other.classList.remove('not-selected');
   }
 };
 
 // ── Live answer ──
+const addedAvatars = new Set();
 function addLiveAnswer(data) {
+  const avatarKey = `${data.playerId}_${data.answer}_${currentQuestionId}`;
+  if (addedAvatars.has(avatarKey)) return;
+  addedAvatars.add(avatarKey);
+
   const player = currentPlayers.find(p => Number(p.id) === Number(data.playerId));
   const name = data.name || player?.name || 'Anonim';
   const color = data.color || player?.color || '#666';
@@ -165,17 +193,19 @@ function addLiveAnswer(data) {
 
   if (container) container.appendChild(avatar);
 
-  if (data.totalPlayers > 1) {
+  if (data.totalPlayers > 1 && data.totalAnswered) {
     document.getElementById('answer-count').textContent =
       `${data.totalAnswered} / ${data.totalPlayers} kişi cevapladı`;
-  } else {
-    document.getElementById('answer-count').textContent = '';
   }
 }
 
 // ── Results rendering ──
 function showResults(data) {
   if (!data) return;
+  if (currentResultQuestionText === data.question && document.getElementById('scene-results')?.classList.contains('active')) {
+    return;
+  }
+  currentResultQuestionText = data.question;
   showScene('results');
 
   document.getElementById('results-question').textContent = data.question || '';
@@ -185,17 +215,10 @@ function showResults(data) {
   const yapardimPct = document.getElementById('r-yapardim-pct');
   const yapmazdimPct = document.getElementById('r-yapmazdim-pct');
 
-  yapardimBar.style.width = '0';
-  yapmazdimBar.style.width = '0';
+  yapardimBar.style.width = (data.yapardimPercent || 0) + '%';
+  yapmazdimBar.style.width = (data.yapmazdimPercent || 0) + '%';
   yapardimPct.textContent = (data.yapardimPercent || 0) + '%';
   yapmazdimPct.textContent = (data.yapmazdimPercent || 0) + '%';
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      yapardimBar.style.width = (data.yapardimPercent || 0) + '%';
-      yapmazdimBar.style.width = (data.yapmazdimPercent || 0) + '%';
-    });
-  });
 
   const container = document.getElementById('results-players');
   const list = data.playerAnswers || [];
@@ -207,6 +230,11 @@ function showResults(data) {
   `).join('');
 
   const nextBtn = document.getElementById('next-btn');
+  if (data.isLastQuestion) {
+    nextBtn.textContent = 'Sonucu Gör 🏆';
+  } else {
+    nextBtn.textContent = 'Sonraki Soru →';
+  }
   nextBtn.style.display = isHost ? '' : 'none';
 }
 
@@ -214,11 +242,19 @@ function showResults(data) {
 window.nextQuestion = async function() {
   if (!isHost) return;
   try {
-    await fetch('/api/next-question', {
+    const res = await fetch('/api/next-question', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomCode, playerId: myPlayerId })
     });
+    const data = await res.json();
+    if (res.ok) {
+      if (data.gameOver && data.results) {
+        showGameEnd(data.results);
+      } else if (data.question) {
+        showQuestion(data.question);
+      }
+    }
   } catch (err) {
     showError('Sonraki soruya geçilemedi.');
   }
@@ -259,20 +295,12 @@ function showGameEnd(data) {
       <div class="ranking-info">
         <div class="ranking-name">${p.name || 'Anonim'}</div>
         <div class="ranking-bar-track">
-          <div class="ranking-bar-fill" data-width="${p.canililkYuzdesi || 0}"></div>
+          <div class="ranking-bar-fill" style="width: ${p.canililkYuzdesi || 0}%"></div>
         </div>
       </div>
       <div class="ranking-percent">${p.canililkYuzdesi || 0}%</div>
     </div>
   `).join('');
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      document.querySelectorAll('.ranking-bar-fill').forEach(bar => {
-        bar.style.width = (bar.dataset.width || '0') + '%';
-      });
-    });
-  });
 
   const playAgainBtn = document.getElementById('play-again-btn');
   playAgainBtn.style.display = '';
@@ -280,17 +308,38 @@ function showGameEnd(data) {
   playAgainBtn.textContent = 'Tekrar Oyna';
 }
 
-// ── Play again ──
+// ── Play again (Anında Lobiye Dönüş veya Canlı Oy Durumu) ──
 window.playAgain = async function() {
   const btn = document.getElementById('play-again-btn');
   btn.disabled = true;
   btn.textContent = 'Bekleniyor...';
   try {
-    await fetch('/api/play-again', {
+    const res = await fetch('/api/play-again', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomCode, playerId: myPlayerId })
     });
+    const data = await res.json();
+    if (res.ok && data.reset) {
+      // Herkes onayladıysa veya odada tek kişiysek, radyo sinyali beklemeksizin anında lobiye geri uç!
+      currentQuestionId = null;
+      currentResultQuestionText = null;
+      showScene('lobby');
+      if (data.lobbyData && data.lobbyData.players) {
+        renderPlayers(data.lobbyData.players);
+      } else {
+        renderPlayers(currentPlayers);
+      }
+      if (data.lobbyData?.settings?.questionCount) {
+        document.getElementById('question-count').textContent = data.lobbyData.settings.questionCount;
+      }
+    } else if (res.ok && data.votes !== undefined) {
+      btn.textContent = `${data.votes}/${data.total} Onayladı`;
+    } else {
+      showError(data.error || 'İşlem gerçekleştirilemedi.');
+      btn.disabled = false;
+      btn.textContent = 'Tekrar Oyna';
+    }
   } catch (err) {
     showError('İsteğin gönderilemedi.');
     btn.disabled = false;
@@ -298,7 +347,7 @@ window.playAgain = async function() {
   }
 };
 
-// ── Start game ──
+// ── Start game (Anında Host Başlatması - WebSocket Beklenmez) ──
 window.startGame = async function() {
   if (!isHost) return;
   const startBtn = document.getElementById('start-btn');
@@ -311,7 +360,9 @@ window.startGame = async function() {
       body: JSON.stringify({ roomCode, playerId: myPlayerId })
     });
     const data = await res.json();
-    if (!res.ok) {
+    if (res.ok && data.question) {
+      showQuestion(data.question);
+    } else {
       showError(data.error || 'Oyun başlatılamadı.');
       startBtn.disabled = false;
       startBtn.textContent = 'Oyunu Başlat';
@@ -341,11 +392,17 @@ function handleServerMessage(msg) {
       if (msg.players) renderPlayers(msg.players);
 
       if (!msg.gameState || msg.gameState === 'lobby') {
-        showScene('lobby');
-        if (!isHost) {
-          document.getElementById('lobby-settings').querySelectorAll('.setting-btn').forEach(b => {
-            b.style.display = 'none';
-          });
+        // Yarış durumu koruması: Eğer oyuncu çoktan oyuna girdiyse (soru, sonuç vb) geç gelen lobby mesajıyla geriye atma!
+        const isInGame = document.getElementById('scene-question')?.classList.contains('active') ||
+                         document.getElementById('scene-results')?.classList.contains('active') ||
+                         document.getElementById('scene-end')?.classList.contains('active');
+        if (!isInGame) {
+          showScene('lobby');
+          if (!isHost) {
+            document.getElementById('lobby-settings').querySelectorAll('.setting-btn').forEach(b => {
+              b.style.display = 'none';
+            });
+          }
         }
       } else if (msg.gameState === 'playing' && msg.currentQuestion) {
         showQuestion(msg.currentQuestion);
@@ -375,7 +432,7 @@ function handleServerMessage(msg) {
       break;
 
     case 'question_results':
-      const delay = (currentPlayers.length <= 1) ? 0 : 1000;
+      const delay = (currentPlayers.length <= 1) ? 0 : 600;
       setTimeout(() => {
         showResults(msg);
       }, delay);
@@ -390,6 +447,8 @@ function handleServerMessage(msg) {
       break;
 
     case 'back_to_lobby':
+      currentQuestionId = null;
+      currentResultQuestionText = null;
       showScene('lobby');
       if (msg.players) renderPlayers(msg.players);
       if (msg.settings && msg.settings.questionCount) {
@@ -410,52 +469,37 @@ function handleServerMessage(msg) {
   }
 }
 
-// ── Rejoin room over HTTP & Setup Supabase Realtime ──
+// ── Sıfır Gecikmeli Başlatma ──
 async function initGame() {
   document.getElementById('lobby-code').textContent = roomCode;
   const name = sessionStorage.getItem('playerName') || 'Anonim';
 
+  fetch('/api/rejoin-room', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: roomCode, name })
+  }).then(r => r.json()).then(data => {
+    if (data && data.type === 'room_joined') {
+      handleServerMessage(data);
+    } else {
+      showError(data.error || 'Odaya bağlanılamadı.');
+    }
+  }).catch(() => showError('Yeniden bağlantı sağlanamadı.'));
+
   try {
-    // 1) Supabase ayarlarını al
     const configRes = await fetch('/api/config');
     const config = await configRes.json();
-
-    if (!config.url || !config.anonKey) {
-      showError('Supabase bağlantı bilgileri eksik (.env kontrol edin).');
-      return;
+    if (config.url && config.anonKey) {
+      supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+      supabaseClient
+        .channel(`room:${roomCode}`)
+        .on('broadcast', { event: '*' }, (payload) => {
+          handleServerMessage(payload.payload);
+        })
+        .subscribe();
     }
-
-    // 2) Realtime Kanalını Başlat
-    supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-    
-    supabaseClient
-      .channel(`room:${roomCode}`)
-      .on('broadcast', { event: '*' }, (payload) => {
-        handleServerMessage(payload.payload);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Kanal hazır, sunucuya odaya geldiğimizi söyleyelim
-          try {
-            const res = await fetch('/api/rejoin-room', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code: roomCode, name })
-            });
-            const data = await res.json();
-            if (res.ok && data.type === 'room_joined') {
-              handleServerMessage(data);
-            } else {
-              showError(data.error || 'Odaya bağlanılamadı.');
-            }
-          } catch (e) {
-            showError('Yeniden bağlantı sağlanamadı.');
-          }
-        }
-      });
   } catch (err) {
-    showError('Sunucu ile etkileşim kurulamadı.');
-    console.error(err);
+    console.error('Realtime abonelik hatası:', err);
   }
 }
 
