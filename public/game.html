@@ -105,43 +105,34 @@
       Sonuçlar
     </div>
 
-    <!-- Veritabanından veriler gelene kadar loading göster -->
-    <div id="results-loading" style="text-align: center; padding: 50px 20px;">
-      <div class="results-spinner"></div>
-      <div style="font-size: 1.1rem; color: var(--muted);">Cevap oranları hesaplanıyor...</div>
-    </div>
+    <div class="results-question" id="results-question"></div>
 
-    <!-- Veri hazır olunca gösterülecek kısım -->
-    <div id="results-content" style="display:none; width:100%;">
-      <div class="results-question" id="results-question"></div>
-
-      <div class="results-bars">
-        <div class="result-bar-group">
-          <div class="result-bar-header">
-            <span class="result-bar-label yapardim">✓ Yapardım</span>
-            <span class="result-bar-percent yapardim" id="r-yapardim-pct">0%</span>
-          </div>
-          <div class="result-bar-track">
-            <div class="result-bar-fill yapardim" id="r-yapardim-bar"></div>
-          </div>
+    <div class="results-bars">
+      <div class="result-bar-group">
+        <div class="result-bar-header">
+          <span class="result-bar-label yapardim">✓ Yapardım</span>
+          <span class="result-bar-percent yapardim" id="r-yapardim-pct">0%</span>
         </div>
-        <div class="result-bar-group" style="margin-top:14px">
-          <div class="result-bar-header">
-            <span class="result-bar-label yapmazdim">✗ Yapmazdım</span>
-            <span class="result-bar-percent yapmazdim" id="r-yapmazdim-pct">0%</span>
-          </div>
-          <div class="result-bar-track">
-            <div class="result-bar-fill yapmazdim" id="r-yapmazdim-bar"></div>
-          </div>
+        <div class="result-bar-track">
+          <div class="result-bar-fill yapardim" id="r-yapardim-bar"></div>
         </div>
       </div>
-
-      <div class="results-players" id="results-players"></div>
-
-      <button class="btn btn-sm" id="next-btn" onclick="nextQuestion()" style="display:none; margin-top: 20px;">
-        Sonraki Soru →
-      </button>
+      <div class="result-bar-group" style="margin-top:14px">
+        <div class="result-bar-header">
+          <span class="result-bar-label yapmazdim">✗ Yapmazdım</span>
+          <span class="result-bar-percent yapmazdim" id="r-yapmazdim-pct">0%</span>
+        </div>
+        <div class="result-bar-track">
+          <div class="result-bar-fill yapmazdim" id="r-yapmazdim-bar"></div>
+        </div>
+      </div>
     </div>
+
+    <div class="results-players" id="results-players"></div>
+
+    <button class="btn btn-sm" id="next-btn" onclick="nextQuestion()" style="display:none">
+      Sonraki Soru →
+    </button>
   </div>
 
   <!-- ═══ GAME END ═══ -->

@@ -62,12 +62,12 @@ let hasAnswered = false;
 let currentQuestionId = null;
 let currentResultQuestionText = null;
 let lastGameEndData = null;
-let frozenResultQuestionId = null;
+let gameEndScreenFrozen = false;
 
 // ── Scene management ──
 function showScene(name) {
-  if (name !== 'results') {
-    frozenResultQuestionId = null; // Sonuç harici bir sahneye geçildiğinde dondurma kilidi kaldırılır
+  if (name !== 'end') {
+    gameEndScreenFrozen = false; // Oyun bitti ekrandan çıkınca dondurma kilidini kaldır
   }
   document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
   const scene = document.getElementById('scene-' + name);
@@ -126,7 +126,7 @@ function renderPlayers(players) {
   if (hostP) currentHostId = Number(hostP.id);
   updateSidebar(currentPlayers);
 
-  if (document.getElementById('scene-end')?.classList.contains('active') && lastGameEndData) {
+  if (document.getElementById('scene-end')?.classList.contains('active') && lastGameEndData && !gameEndScreenFrozen) {
     updateGameEndRanking(lastGameEndData);
   }
 
@@ -368,150 +368,49 @@ function triggerOptimisticResultsIfNeeded() {
   }
 }
 
-// ── Results rendering & Tek Seferlik Veri Çekme (Dondurulmuş Sonuç Ekranı) ──
-async function showResults(initialData) {
-  const qLockKey = currentQuestionId || initialData?.question || 'default_q';
-
-  // 1 & 3. Kural: Sonuç ekranı bir kez render edildikten sonra Realtime veya polling güncellemesi gelse bile YENİDEN RENDER ETME, DONDUR
-  if (frozenResultQuestionId === qLockKey) {
-    console.log("[Sonuç Ekranı] Bu soru için cevap oranları hesaplanıp donduruldu, yeni Realtime/Polling bildirimi yoksayıtıldı.");
+// ── Results rendering ──
+function showResults(data) {
+  if (!data) return;
+  const resFlag = `state_res_${data.question || currentQuestionId}`;
+  if (isDuplicateEvent(resFlag)) {
+    // Realtime ve Polling aynı anda state değişikliği (herkes cevap verdi) algılarsa soru/sonuç ekrana ikinci kez çizilmez!
     return;
   }
-  frozenResultQuestionId = qLockKey;
-  currentResultQuestionText = initialData?.question || document.getElementById('q-text')?.innerHTML || '';
-
+  if (currentResultQuestionText === data.question && document.getElementById('scene-results')?.classList.contains('active')) {
+    return;
+  }
+  currentResultQuestionText = data.question;
   showScene('results');
 
-  // 4. Kural: Veri gelene kadar sonuç ekranında loading göster, veri hazır olunca göster
-  const loadingEl = document.getElementById('results-loading');
-  const contentEl = document.getElementById('results-content');
-  if (loadingEl) loadingEl.style.display = 'block';
-  if (contentEl) contentEl.style.display = 'none';
-
-  let fetchedAnswers = [];
-  let questionText = currentResultQuestionText;
-  let isLastQuestion = initialData?.isLastQuestion || false;
-
-  try {
-    // 2. Kural: Sonuç ekranı açılır açılmaz Supabase'deki answers tablosundan o odaya ait tüm cevapları tek seferlik çek!
-    if (supabaseClient && roomCode && currentQuestionId) {
-      const { data: dbAnswers, error } = await supabaseClient
-        .from('answers')
-        .select('*')
-        .eq('room_code', roomCode);
-
-      if (!error && dbAnswers && dbAnswers.length > 0) {
-        const filtered = dbAnswers.filter(a => String(a.question_id) === String(currentQuestionId) || Number(a.question_id) === Number(currentQuestionId));
-        if (filtered.length > 0) {
-          fetchedAnswers = filtered.map(a => ({
-            playerId: Number(a.player_id),
-            name: a.player_name,
-            color: a.player_color,
-            answer: a.answer
-          }));
-        }
-      }
-    }
-
-    // Supabase yanıt alamadıysa veya cevap satırı anlık işlenmediyse 150ms sonra API üzerinden odanın state'ini çek
-    if (fetchedAnswers.length === 0) {
-      await new Promise(r => setTimeout(r, 150));
-      const res = await fetch('/api/get-room-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: roomCode, playerId: myPlayerId })
-      });
-      const stateData = await res.json();
-      if (res.ok && stateData && stateData.answers && stateData.answers.length > 0) {
-        fetchedAnswers = stateData.answers.map(a => ({
-          playerId: Number(a.playerId),
-          name: a.name,
-          color: a.color,
-          answer: a.answer
-        }));
-      }
-      if (stateData?.currentQuestion?.text) {
-        questionText = stateData.currentQuestion.text;
-        isLastQuestion = (stateData.currentQuestion.index >= (stateData.currentQuestion.total - 1));
-      }
-    }
-  } catch (err) {
-    console.error("Cevap oranları çekilirken ağ hatası:", err);
-  }
-
-  // Son güvenlik: Eğer veritabanı boş dönmüşse anlık hafızadaki local veriler ya da initialData devreye girer
-  if (fetchedAnswers.length === 0 && currentQuestionAnswers && currentQuestionAnswers.length > 0) {
-    fetchedAnswers = currentQuestionAnswers.slice();
-  } else if (fetchedAnswers.length === 0 && initialData?.playerAnswers && initialData.playerAnswers.length > 0) {
-    fetchedAnswers = initialData.playerAnswers.slice();
-  }
-
-  // Çekilen veriden kaç kişi hangi seçeneği seçti tamı tamına hesapla ve ekrana bas
-  let yapardimCount = 0;
-  let yapmazdimCount = 0;
-  const playerAnswersList = [];
-
-  fetchedAnswers.forEach(ans => {
-    const p = currentPlayers.find(pl => Number(pl.id) === Number(ans.playerId || ans.player_id)) || {};
-    const choice = ans.answer;
-    if (choice === 'yapardim') yapardimCount++;
-    else yapmazdimCount++;
-
-    playerAnswersList.push({
-      playerId: Number(ans.playerId || ans.player_id),
-      name: ans.name || ans.player_name || p.name || 'Anonim',
-      color: ans.color || ans.player_color || p.color || '#666',
-      answer: choice
-    });
-  });
-
-  const totalCount = yapardimCount + yapmazdimCount;
-  let yapardimPct = 50;
-  let yapmazdimPct = 50;
-  if (totalCount > 0) {
-    yapardimPct = Math.round((yapardimCount / totalCount) * 100);
-    yapmazdimPct = 100 - yapardimPct;
-  } else if (initialData && initialData.yapardimPercent !== undefined) {
-    yapardimPct = initialData.yapardimPercent;
-    yapmazdimPct = initialData.yapmazdimPercent;
-  }
-
-  document.getElementById('results-question').innerHTML = questionText || '';
+  document.getElementById('results-question').innerHTML = data.question || '';
 
   const yapardimBar = document.getElementById('r-yapardim-bar');
   const yapmazdimBar = document.getElementById('r-yapmazdim-bar');
-  const yapardimPctEl = document.getElementById('r-yapardim-pct');
-  const yapmazdimPctEl = document.getElementById('r-yapmazdim-pct');
+  const yapardimPct = document.getElementById('r-yapardim-pct');
+  const yapmazdimPct = document.getElementById('r-yapmazdim-pct');
 
-  if (yapardimBar) yapardimBar.style.width = yapardimPct + '%';
-  if (yapmazdimBar) yapmazdimBar.style.width = yapmazdimPct + '%';
-  if (yapardimPctEl) yapardimPctEl.textContent = `%${yapardimPct} (${yapardimCount} kişi)`;
-  if (yapmazdimPctEl) yapmazdimPctEl.textContent = `%${yapmazdimPct} (${yapmazdimCount} kişi)`;
+  yapardimBar.style.width = (data.yapardimPercent || 0) + '%';
+  yapmazdimBar.style.width = (data.yapmazdimPercent || 0) + '%';
+  yapardimPct.textContent = (data.yapardimPercent || 0) + '%';
+  yapmazdimPct.textContent = (data.yapmazdimPercent || 0) + '%';
 
   const container = document.getElementById('results-players');
-  if (container) {
-    container.innerHTML = playerAnswersList.map(p => `
-      <div class="result-player ${p.answer}">
-        <div class="mini-avatar" style="background:${p.color || '#666'}">${(p.name || '?').charAt(0).toUpperCase()}</div>
-        <span>${p.name || 'Anonim'}</span>
-      </div>
-    `).join('');
-  }
+  const list = data.playerAnswers || [];
+  container.innerHTML = list.map(p => `
+    <div class="result-player ${p.answer}">
+      <div class="mini-avatar" style="background:${p.color || '#666'}">${(p.name || '?').charAt(0).toUpperCase()}</div>
+      <span>${p.name || 'Anonim'}</span>
+    </div>
+  `).join('');
 
   const nextBtn = document.getElementById('next-btn');
-  if (nextBtn) {
-    if (isLastQuestion) {
-      nextBtn.textContent = 'Sonucu Gör 🏆';
-    } else {
-      nextBtn.textContent = 'Sonraki Soru →';
-    }
-    const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
-    nextBtn.style.display = (isHost || activeCount <= 1) ? '' : 'none';
+  if (data.isLastQuestion) {
+    nextBtn.textContent = 'Sonucu Gör 🏆';
+  } else {
+    nextBtn.textContent = 'Sonraki Soru →';
   }
-
-  // Veri hesaplamaları tamamlandı! Loading gizleniyor, sonuçlar ekrana açılıyor ve donduruluyor.
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (contentEl) contentEl.style.display = 'block';
+  const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
+  nextBtn.style.display = (isHost || activeCount <= 1) ? '' : 'none';
 }
 
 // ── Next question ──
@@ -539,15 +438,120 @@ window.nextQuestion = async function() {
   }
 };
 
-// ── Game end ──
-function showGameEnd(data) {
-  if (!data) return;
+// ── Game end (Tek Seferlik Doğrudan Veritabanı Sorgusu ve Dondurma) ──
+async function showGameEnd(data) {
+  if (!data && !roomCode) return;
+  
+  // Kural: Ekrana bas ve BİR DAHA GÜNCELLEME (Realtime ve polling tetiklemeleri engellenir)
+  if (gameEndScreenFrozen) {
+    console.log("[Oyun Bitti] Oyun sonu cevap tablosu çekildi, hesaplandı ve donduruldu. Yeni güncelleme yoksayıtıldı.");
+    return;
+  }
   if (isDuplicateEvent('state_game_end_scene') && document.getElementById('scene-end')?.classList.contains('active')) {
     return;
   }
-  lastGameEndData = data;
+  
+  gameEndScreenFrozen = true;
+  lastGameEndData = data || {};
   showScene('end');
+  renderGameEndUI(lastGameEndData);
 
+  // Açılır açılmaz Supabase'deki answers tablosundan o odaya ait TÜM cevapları tek seferlik çek
+  let allAnswers = null;
+  if (supabaseClient && roomCode) {
+    try {
+      const { data: dbAnswers, error } = await supabaseClient
+        .from('answers')
+        .select('*')
+        .eq('room_code', roomCode);
+      if (!error && dbAnswers && dbAnswers.length > 0) {
+        allAnswers = dbAnswers;
+      }
+    } catch (err) {
+      console.error("Oyun bitti cevap verisi çekilemedi:", err);
+    }
+  }
+
+  // Çekilen veriden kaç kişi hangi seçeneği seçti ve ödül istatistiklerini hesapla!
+  if (allAnswers && allAnswers.length > 0) {
+    const totalQCount = parseInt(document.getElementById('question-count')?.textContent || '10', 10);
+    const playerStats = {};
+    const playersList = (lastGameEndData.players && lastGameEndData.players.length > 0 ? lastGameEndData.players : currentPlayers).map(p => ({
+      id: Number(p.id),
+      name: p.name || 'Anonim',
+      color: p.color || '#666',
+      canililkYuzdesi: 0
+    }));
+
+    playersList.forEach(p => { playerStats[p.id] = { yapardim: 0, yapmazdim: 0 }; });
+
+    allAnswers.forEach(ans => {
+      const pid = Number(ans.player_id);
+      if (!playerStats[pid]) {
+        playerStats[pid] = { yapardim: 0, yapmazdim: 0 };
+        if (!playersList.some(p => p.id === pid)) {
+          playersList.push({
+            id: pid,
+            name: ans.player_name || 'Anonim',
+            color: ans.player_color || '#666',
+            canililkYuzdesi: 0
+          });
+        }
+      }
+      if (ans.answer === 'yapardim') playerStats[pid].yapardim++;
+      else playerStats[pid].yapmazdim++;
+    });
+
+    let enCaniPlayer = null;
+    let enCaniScore = -1;
+
+    playersList.forEach(p => {
+      const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0 };
+      const totalAns = Math.max(1, st.yapardim + st.yapmazdim, totalQCount);
+      p.canililkYuzdesi = Math.round((st.yapardim / totalAns) * 100);
+      if (st.yapardim > enCaniScore) {
+        enCaniScore = st.yapardim;
+        enCaniPlayer = p;
+      }
+    });
+
+    playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
+
+    const awards = {};
+    if (enCaniPlayer && enCaniScore > 0) {
+      awards.enCani = {
+        name: enCaniPlayer.name || 'Anonim',
+        score: enCaniScore,
+        color: enCaniPlayer.color,
+      };
+    }
+    if (playersList.length > 1 && playersList[1].canililkYuzdesi > 0) {
+      awards.enParagoz = {
+        name: playersList[1].name || 'Anonim',
+        score: Math.round((playersList[1].canililkYuzdesi * totalQCount) / 100),
+        color: playersList[1].color,
+      };
+    }
+    if (playersList.length > 2) {
+      awards.enBencil = {
+        name: playersList[playersList.length - 1].name || 'Anonim',
+        score: Math.round((playersList[playersList.length - 1].canililkYuzdesi * totalQCount) / 100),
+        color: playersList[playersList.length - 1].color,
+      };
+    }
+
+    lastGameEndData = {
+      players: playersList,
+      awards: awards
+    };
+
+    // Hesaplanan kesin verileri ekrana bas ve KESİNLİKLE bir daha güncelleme!
+    renderGameEndUI(lastGameEndData);
+  }
+}
+
+function renderGameEndUI(data) {
+  if (!data) return;
   const awardsGrid = document.getElementById('awards-grid');
   const awardConfigs = [
     { key: 'enCani', emoji: '🔪', title: 'En Cani' },
@@ -555,26 +559,30 @@ function showGameEnd(data) {
     { key: 'enBencil', emoji: '🎭', title: 'En Bencil' },
   ];
 
-  awardsGrid.innerHTML = awardConfigs
-    .filter(a => data.awards && data.awards[a.key])
-    .map(a => {
-      const award = data.awards[a.key];
-      return `
-        <div class="award-card">
-          <div class="award-emoji">${a.emoji}</div>
-          <div class="award-title">${a.title}</div>
-          <div class="award-name" style="color:${award.color || '#FF2D55'}">${award.name}</div>
-          <div class="award-score">${award.score} soru</div>
-        </div>
-      `;
-    }).join('');
+  if (awardsGrid) {
+    awardsGrid.innerHTML = awardConfigs
+      .filter(a => data.awards && data.awards[a.key])
+      .map(a => {
+        const award = data.awards[a.key];
+        return `
+          <div class="award-card">
+            <div class="award-emoji">${a.emoji}</div>
+            <div class="award-title">${a.title}</div>
+            <div class="award-name" style="color:${award.color || '#FF2D55'}">${award.name}</div>
+            <div class="award-score">${award.score} soru</div>
+          </div>
+        `;
+      }).join('');
+  }
 
   updateGameEndRanking(data);
 
   const playAgainBtn = document.getElementById('play-again-btn');
-  playAgainBtn.style.display = '';
-  playAgainBtn.disabled = false;
-  playAgainBtn.textContent = 'Tekrar Oyna';
+  if (playAgainBtn) {
+    playAgainBtn.style.display = '';
+    playAgainBtn.disabled = false;
+    playAgainBtn.textContent = 'Tekrar Oyna';
+  }
 }
 
 function updateGameEndRanking(data) {

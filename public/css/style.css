@@ -1186,20 +1186,3 @@ footer {
   text-align: center;
   letter-spacing: 0.15em;
 }
-
-/* ── Results Loading Spinner ── */
-.results-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--faint-2);
-  border-top: 4px solid var(--red);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px auto;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
