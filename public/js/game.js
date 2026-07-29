@@ -168,13 +168,31 @@ let pendingSettingsPromise = null;
 
 function getQuestionCountValue() {
   const el = document.getElementById('question-count');
-  return parseInt(el.value, 10) || 10;
+  return parseInt(el.value, 10);
+}
+
+function isQuestionCountValid() {
+  const val = getQuestionCountValue();
+  return !isNaN(val) && val >= 1 && val <= 10;
+}
+
+function updateQuestionCountValidity() {
+  const el = document.getElementById('question-count');
+  const startBtn = document.getElementById('start-btn');
+  if (!el) return;
+  const valid = isQuestionCountValid();
+  el.style.color = valid ? '' : '#ff3b30';
+  el.style.borderColor = valid ? '' : '#ff3b30';
+  if (startBtn && isHost) {
+    startBtn.disabled = !valid;
+  }
 }
 
 function setQuestionCountValue(val) {
   val = Math.max(1, Math.min(10, val));
   const el = document.getElementById('question-count');
   el.value = val;
+  updateQuestionCountValidity();
   return val;
 }
 
@@ -201,19 +219,19 @@ async function sendSettingsUpdate(val) {
 
 window.changeQuestionCount = async function(delta) {
   if (!isHost) return;
-  let val = getQuestionCountValue() + delta;
-  val = setQuestionCountValue(val);
+  const cur = getQuestionCountValue();
+  const base = isNaN(cur) ? 10 : cur;
+  let val = setQuestionCountValue(base + delta);
   await sendSettingsUpdate(val);
 };
 
 window.onQuestionCountInput = async function() {
   if (!isHost) return;
   const el = document.getElementById('question-count');
-  let raw = parseInt(el.value, 10);
-  if (isNaN(raw) || raw < 1) return; // Yazma devam ediyor, bekle
-  let val = Math.max(1, Math.min(10, raw));
-  if (raw !== val) el.value = val; // Geçersiz değeri düzelt
-  await sendSettingsUpdate(val);
+  const raw = parseInt(el.value, 10);
+  updateQuestionCountValidity();
+  if (isNaN(raw) || raw < 1 || raw > 10) return; // Geçersiz — kırmızı göster, kaydetme
+  await sendSettingsUpdate(raw);
 };
 
 // ── Question rendering ──
@@ -709,6 +727,14 @@ window.playAgain = async function() {
 window.startGame = async function() {
   const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
   if (!isHost && activeCount > 1) return;
+
+  // Geçersiz soru sayısı varsa oyunu başlatma
+  if (!isQuestionCountValid()) {
+    updateQuestionCountValidity(); // Kırmızı göster
+    showError('Geçerli bir soru sayısı gir (1–10).');
+    return;
+  }
+
   const startBtn = document.getElementById('start-btn');
   startBtn.disabled = true;
   startBtn.textContent = 'Başlatılıyor...';
@@ -1106,21 +1132,6 @@ async function initGame() {
 
 initGame();
 
-// ── Odadan Çık ──
-window.exitRoom = async function() {
-  if (confirm("Odadan çıkmak istediğinize emin misiniz?")) {
-    try {
-      if (roomCode && myPlayerId) {
-        navigator.sendBeacon('/api/leave-room', JSON.stringify({ roomCode, playerId: myPlayerId }));
-      }
-    } catch(e) {}
-    localStorage.removeItem('roomCode');
-    localStorage.removeItem('playerId');
-    localStorage.removeItem('isHost');
-    localStorage.removeItem('playerName');
-    window.location.href = '/';
-  }
-};
 
 // ── Sayfa Kapandığında veya Sekme Terk Edildiğinde Çıkış Bildirimi ──
 function notifyPlayerLeft() {
