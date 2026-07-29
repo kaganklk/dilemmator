@@ -641,19 +641,11 @@ window.playAgain = async function() {
     });
     const data = await res.json();
     if (res.ok && data.reset) {
-      sendClientBroadcast('back_to_lobby', data.lobbyData || {});
-      // Herkes onayladıysa veya odada tek kişiysek, radyo sinyali beklemeksizin anında lobiye geri uç!
+      sendClientBroadcast('new_question', data.firstQ);
+      // Oyun yeniden başladığı için direkt ilk soruya geç
       currentQuestionId = null;
       currentResultQuestionText = null;
-      showScene('lobby');
-      if (data.lobbyData && data.lobbyData.players) {
-        renderPlayers(data.lobbyData.players);
-      } else {
-        renderPlayers(currentPlayers);
-      }
-      if (data.lobbyData?.settings?.questionCount) {
-        document.getElementById('question-count').textContent = data.lobbyData.settings.questionCount;
-      }
+      showQuestion(data.firstQ);
     } else if (res.ok && data.votes !== undefined) {
       sendClientBroadcast('play_again_update', { votes: data.votes, total: data.total });
       btn.textContent = `${data.votes}/${data.total} Onayladı`;

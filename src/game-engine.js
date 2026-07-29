@@ -325,25 +325,25 @@ export class GameEngine {
     const allVoted = validVotes.length >= total;
 
     if (allVoted) {
-      // Herkes oyladı (veya odada tek kişi var), odayı sıfırla ve lobiye döndür
-      const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
-      
+      // Herkes oyladı (veya odada tek kişi var), önce state'i temizle ve listeyi sıfırla
       let currentSettings = room.settings || { questionCount: 10, usedQuestions: [] };
       currentSettings.usedQuestions = [];
 
-      const updatePromise = supabase.from('rooms').update({
-        state: 'lobby',
+      // Sadece play_again_votes ve settings (sıfırlanmış) güncelleniyor.
+      // Kalan (answers silinmesi, questions atanması ve state='playing') işlemini startGame halledecek.
+      await supabase.from('rooms').update({
         play_again_votes: [],
-        current_question_index: 0,
         settings: currentSettings
       }).eq('code', roomCode);
 
-      await Promise.all([deletePromise, updatePromise]);
+      // Sonra yeni oyunu başlat (yarış koşulu olmasın diye bekleyerek yapıyoruz)
+      const firstQ = await this.startGame(roomCode, currentSettings.questionCount);
 
       return {
         reset: true,
         votes: validVotes.length,
-        total
+        total,
+        firstQ
       };
     } else {
       // Henüz herkes basmadı, oy sayısını kaydet
