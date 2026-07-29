@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -353,7 +354,7 @@ footer {
 </footer>
 
 <script>
-function handleSubmit() {
+async function handleSubmit() {
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
   const message = document.getElementById('message').value.trim();
@@ -369,13 +370,40 @@ function handleSubmit() {
     return;
   }
 
-  const subject = document.getElementById('subject').value.trim() || 'Dilemmator İletişim Formu';
-  const body = `İsim: ${name}\nE-posta: ${email}\n\n${message}`;
-  window.location.href = `mailto:iletisim@dilemmator.fun?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const title = document.getElementById('subject').value.trim() || 'Dilemmator İletişim Formu';
 
-  document.getElementById('success-msg').style.display = 'block';
-  document.querySelector('.btn-submit').style.opacity = '0.5';
-  document.querySelector('.btn-submit').disabled = true;
+  const btn = document.querySelector('.btn-submit');
+  const msgBox = document.getElementById('success-msg');
+  
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.textContent = 'Gönderiliyor...';
+  msgBox.style.display = 'none';
+
+  try {
+    await emailjs.send(
+      "service_9y9wo2l", 
+      "template_y6e3ojq", 
+      { name, email, title, message }, 
+      "CYOTY6EEiNdDz2yWk"
+    );
+    msgBox.style.color = '#1D9E75';
+    msgBox.style.background = 'rgba(29, 158, 117, 0.1)';
+    msgBox.style.borderColor = 'rgba(29, 158, 117, 0.25)';
+    msgBox.textContent = 'Mesajın alındı, en kısa sürede geri döneceğiz.';
+    msgBox.style.display = 'block';
+    btn.textContent = 'Gönderildi';
+  } catch (error) {
+    console.error("EmailJS Hatası:", error);
+    msgBox.style.color = '#FF2D55';
+    msgBox.style.background = 'rgba(255, 45, 85, 0.1)';
+    msgBox.style.borderColor = 'rgba(255, 45, 85, 0.25)';
+    msgBox.textContent = 'Bir hata oluştu, lütfen tekrar dene.';
+    msgBox.style.display = 'block';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = 'Gönder';
+  }
 }
 </script>
 
