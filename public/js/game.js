@@ -1106,6 +1106,21 @@ async function initGame() {
 
 initGame();
 
+// ── Odadan Çık ──
+window.exitRoom = async function() {
+  if (confirm("Odadan çıkmak istediğinize emin misiniz?")) {
+    try {
+      if (roomCode && myPlayerId) {
+        navigator.sendBeacon('/api/leave-room', JSON.stringify({ roomCode, playerId: myPlayerId }));
+      }
+    } catch(e) {}
+    localStorage.removeItem('roomCode');
+    localStorage.removeItem('playerId');
+    localStorage.removeItem('isHost');
+    localStorage.removeItem('playerName');
+    window.location.href = '/';
+  }
+};
 
 // ── Sayfa Kapandığında veya Sekme Terk Edildiğinde Çıkış Bildirimi ──
 function notifyPlayerLeft() {
