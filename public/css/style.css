@@ -1057,9 +1057,9 @@ footer {
 
 /* ── Back Button ── */
 .back-button {
-  position: absolute;
-  top: 24px;
-  left: 24px;
+  position: fixed;
+  top: 20px;
+  left: 20px;
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -1071,7 +1071,7 @@ footer {
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s ease;
-  z-index: 100;
+  z-index: 200;
 }
 
 .back-button:hover {

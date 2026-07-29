@@ -79,6 +79,12 @@ function showScene(name) {
   if (sidebar) {
     sidebar.style.display = (name === 'end') ? 'none' : '';
   }
+  // Global geri butonu: lobi, soru ve sonuç ekranlarında göster; diğerlerinde gizle
+  const backBtn = document.getElementById('global-back-btn');
+  if (backBtn) {
+    const showBackOn = ['lobby', 'question', 'results'];
+    backBtn.style.display = showBackOn.includes(name) ? 'flex' : 'none';
+  }
 }
 
 // ── Helpers ──
