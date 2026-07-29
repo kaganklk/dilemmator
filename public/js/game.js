@@ -418,7 +418,7 @@ function showResults(data) {
 // ── Next question ──
 let isNextQuestionLoading = false;
 window.nextQuestion = async function() {
-  if (isNextQuestionLoading) return;
+  if (isNextQuestionLoading) return; // Zaten işleniyor, ikinci isteği tamamen yoksay
   const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
   if (!isHost && activeCount > 1) return;
   
@@ -426,6 +426,7 @@ window.nextQuestion = async function() {
   const btn = document.getElementById('next-btn');
   if (btn) {
     btn.disabled = true;
+    btn.style.pointerEvents = 'none';
     btn.textContent = 'Bekleniyor...';
   }
 
@@ -436,7 +437,7 @@ window.nextQuestion = async function() {
       body: JSON.stringify({ roomCode, playerId: myPlayerId })
     });
     const data = await res.json();
-    if (res.ok) {
+    if (res.ok && !data.error) {
       if (data.gameOver && data.results) {
         sendClientBroadcast('game_ended', data.results);
         showGameEnd(data.results);
@@ -444,15 +445,24 @@ window.nextQuestion = async function() {
         sendClientBroadcast('new_question', data.question);
         showQuestion(data.question);
       }
+      // Başarılı geçişte buton aktif EDİLMEZ — yeni soru/sonuç ekranı kendi butonunu gösterecek
+    } else {
+      // Hata veya yarış koşulu: butonu geri aç
+      if (btn) {
+        btn.disabled = false;
+        btn.style.pointerEvents = '';
+        btn.textContent = 'Sonraki Soru →';
+      }
     }
   } catch (err) {
     showError('Sonraki soruya geçilemedi.');
-  } finally {
-    isNextQuestionLoading = false;
     if (btn) {
       btn.disabled = false;
+      btn.style.pointerEvents = '';
       btn.textContent = 'Sonraki Soru →';
     }
+  } finally {
+    isNextQuestionLoading = false;
   }
 };
 
