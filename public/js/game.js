@@ -60,6 +60,7 @@ let currentHostId = null;
 let currentQuestionAnswers = [];
 let hasAnswered = false;
 let currentQuestionId = null;
+let currentQuestionIndex = -1;  // Mevcut soru indeksi — geri gidişi engellemek için
 let currentResultQuestionText = null;
 let lastGameEndData = null;
 let gameEndScreenFrozen = false;
@@ -243,13 +244,16 @@ window.onQuestionCountInput = async function() {
 function showQuestion(question) {
   if (!question) return;
   const qId = question.id ?? question.index ?? '0';
-  const qStateFlag = `state_q_${qId}`;
-  
-  if (currentQuestionId === question.id && document.getElementById('scene-question')?.classList.contains('active')) {
+  const incomingIndex = question.index ?? -1;
+
+  // ── GERİ GİDİŞ KORU: Mevcut sorudan daha eski bir soru gelirse yoksay ──
+  // (polling/realtime DB'yi geç güncelleyince eski soruyu tekrar göstermesini engeller)
+  if (incomingIndex < currentQuestionIndex) {
+    console.log(`[Dedup] Eski soru yoksayıldı: gelen index=${incomingIndex}, mevcut=${currentQuestionIndex}`);
     return;
   }
-  // State Değişikliği Flag Kontrolü: Bu soru zaten açıldıysa Realtime/Polling 2. tetiklemesi yoksayıtılır!
-  if (isDuplicateEvent(qStateFlag) && currentQuestionId === question.id) {
+
+  if (currentQuestionId === question.id && document.getElementById('scene-question')?.classList.contains('active')) {
     return;
   }
   // Eğer bu sorunun sonuç ekrana çoktan geçildiysé polling'in eski state'le soruyu tekrar göstermesi yasadışı!
@@ -258,6 +262,7 @@ function showQuestion(question) {
   }
 
   currentQuestionId = question.id;
+  currentQuestionIndex = incomingIndex;
   currentResultQuestionText = null;
   hasAnswered = false;
   currentQuestionAnswers = [];
@@ -711,6 +716,7 @@ window.playAgain = async function() {
       sendClientBroadcast('new_question', data.firstQ);
       // Oyun yeniden başladığı için direkt ilk soruya geç
       currentQuestionId = null;
+      currentQuestionIndex = -1;
       currentResultQuestionText = null;
       showQuestion(data.firstQ);
     } else if (res.ok && data.votes !== undefined) {
@@ -880,6 +886,7 @@ function handleServerMessage(msg) {
       }
       processedEventIds.clear(); // Yeni oyun turu için önceki tüm state ve event ID'lerini sıfırla!
       currentQuestionId = null;
+      currentQuestionIndex = -1;
       currentResultQuestionText = null;
       showScene('lobby');
       if (msg.players) renderPlayers(msg.players);
@@ -942,6 +949,7 @@ async function syncStateFromDatabase() {
     if (data.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
       if (!isInEndScene) {
         currentQuestionId = null;
+        currentQuestionIndex = -1;
         currentResultQuestionText = null;
         showScene('lobby');
         if (!isHost) {
