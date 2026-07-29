@@ -183,6 +183,7 @@ export class GameEngine {
     const yapmazdimPercent = total > 0 ? (100 - yapardimPercent) : 50;
 
     return {
+      questionId: q.id,
       question: q.text,
       yapardimPercent,
       yapmazdimPercent,

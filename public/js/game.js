@@ -776,6 +776,11 @@ function handleServerMessage(msg) {
       break;
 
     case 'question_results':
+      // Eski sorudan kalan gecikmeli broadcast'i yoksay
+      if (msg.questionId && currentQuestionId && String(msg.questionId) !== String(currentQuestionId)) {
+        console.log(`[Dedup] Eski sorunun sonucu yoksayıldı: broadcast Q${msg.questionId}, mevcut Q${currentQuestionId}`);
+        break;
+      }
       const delay = (currentPlayers.length <= 1) ? 0 : 600;
       setTimeout(() => {
         showResults(msg);
@@ -877,10 +882,11 @@ async function syncStateFromDatabase() {
       }
     } else if (data.state === 'results') {
       // Sayfa yenilendiğinde oda 'results' durumundaysa sonuçları göster
-      if (data.qResults) {
+      // Ama sadece gerçek cevap varsa (cevaplar silinmiş olabilir → 50/50 sahte veri)
+      if (data.qResults && data.qResults.playerAnswers && data.qResults.playerAnswers.length > 0) {
         showResults(data.qResults);
       } else if (data.currentQuestion) {
-        // Sonuç verisi yoksa en azından soruyu göster
+        // Sonuç verisi yoksa veya boşsa soruyu göster
         showQuestion(data.currentQuestion);
       }
     } else if (data.state === 'end') {
