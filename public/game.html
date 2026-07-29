@@ -20,7 +20,7 @@
 <div class="glow"></div>
 
 <!-- Sağ üst oyuncu paneli (tüm sahnelerde görünür) -->
-<div class="players-sidebar" id="players-sidebar">
+<div class="players-sidebar" id="players-sidebar" style="display:none">
   <div class="sidebar-header">
     <span class="sidebar-title">Oyuncular</span>
     <span class="sidebar-count" id="sidebar-count">0</span>
@@ -30,9 +30,22 @@
 
 <div class="page">
 
+  <!-- ═══ LOADING ═══ -->
+  <div class="scene active" id="scene-loading">
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
+      <div class="title" style="font-size: 40px; margin-bottom: 20px;">
+        <span class="title-w">YÜKLENİ</span><span class="title-r">YOR...</span>
+      </div>
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Odaya bağlanılıyor
+      </div>
+    </div>
+  </div>
+
   <!-- ═══ LOBBY ═══ -->
-  <div class="scene active" id="scene-lobby">
-    <div class="back-button" onclick="window.location.href='/'" title="Ana Sayfaya Dön">
+  <div class="scene" id="scene-lobby">
+    <div class="back-button" onclick="localStorage.clear(); window.location.href='/'" title="Odadan Çık ve Ana Sayfaya Dön">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
     </div>
 
@@ -146,7 +159,7 @@
 
     <div class="end-actions">
       <button class="btn" id="play-again-btn" onclick="playAgain()" style="display:none">Tekrar Oyna</button>
-      <button class="btn btn-outline" onclick="window.location.href='/'">Ana Sayfa</button>
+      <button class="btn btn-outline" onclick="localStorage.clear(); window.location.href='/'">Ana Sayfa</button>
     </div>
   </div>
 

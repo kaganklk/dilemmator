@@ -250,10 +250,7 @@ export class RoomManager {
     if (configErr) return { error: configErr };
     if (!code || !playerId) return { error: 'Geçersiz parametre' };
 
-    await Promise.all([
-      supabase.from('players').delete().eq('id', playerId.toString()).eq('room_code', code),
-      supabase.from('answers').delete().eq('player_id', playerId.toString()).eq('room_code', code)
-    ]);
+    await supabase.from('players').update({ connected: false }).eq('id', playerId.toString()).eq('room_code', code);
 
     const [room, players] = await Promise.all([
       this.getRoom(code),

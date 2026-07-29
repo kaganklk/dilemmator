@@ -1,8 +1,8 @@
 // game.js — Yıldırım Hızı (Lightning Fast & Optimistic UI) Destekli Oyun Mantığı
 
 const roomCode = new URLSearchParams(location.search).get('room');
-const myPlayerId = parseInt(sessionStorage.getItem('playerId'), 10);
-let isHost = sessionStorage.getItem('isHost') === 'true';
+const myPlayerId = parseInt(localStorage.getItem('playerId'), 10);
+let isHost = localStorage.getItem('isHost') === 'true';
 
 if (!roomCode || isNaN(myPlayerId)) {
   window.location.href = '/';
@@ -414,9 +414,19 @@ function showResults(data) {
 }
 
 // ── Next question ──
+let isNextQuestionLoading = false;
 window.nextQuestion = async function() {
+  if (isNextQuestionLoading) return;
   const activeCount = currentPlayers.filter(p => p.connected !== false).length || 1;
   if (!isHost && activeCount > 1) return;
+  
+  isNextQuestionLoading = true;
+  const btn = document.getElementById('next-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Bekleniyor...';
+  }
+
   try {
     const res = await fetch('/api/next-question', {
       method: 'POST',
@@ -435,6 +445,12 @@ window.nextQuestion = async function() {
     }
   } catch (err) {
     showError('Sonraki soruya geçilemedi.');
+  } finally {
+    isNextQuestionLoading = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Sonraki Soru →';
+    }
   }
 };
 
@@ -696,10 +712,10 @@ function handleServerMessage(msg) {
 
   switch (msg.type) {
     case 'room_joined':
-      sessionStorage.setItem('playerId', msg.playerId);
+      localStorage.setItem('playerId', msg.playerId);
       if (msg.isHost !== undefined) {
         isHost = msg.isHost;
-        sessionStorage.setItem('isHost', isHost ? 'true' : 'false');
+        localStorage.setItem('isHost', isHost ? 'true' : 'false');
       }
       document.getElementById('lobby-code').textContent = msg.roomCode || roomCode;
       if (msg.settings && msg.settings.questionCount) {
@@ -811,7 +827,7 @@ async function syncStateFromDatabase() {
     if (data.hostId !== undefined) {
       currentHostId = Number(data.hostId);
       isHost = Number(myPlayerId) === Number(currentHostId);
-      sessionStorage.setItem('isHost', isHost ? 'true' : 'false');
+      localStorage.setItem('isHost', isHost ? 'true' : 'false');
     }
     if (data.players) {
       currentPlayers = data.players;
@@ -986,7 +1002,7 @@ function setupRealtimeChannel(config) {
 // ── Sıfır Gecikmeli Başlatma ──
 async function initGame() {
   document.getElementById('lobby-code').textContent = roomCode;
-  const name = sessionStorage.getItem('playerName') || 'Anonim';
+  const name = localStorage.getItem('playerName') || 'Anonim';
 
   fetch('/api/rejoin-room', {
     method: 'POST',
@@ -996,9 +1012,19 @@ async function initGame() {
     if (data && data.type === 'room_joined') {
       handleServerMessage(data);
     } else {
-      showError(data.error || 'Odaya bağlanılamadı.');
+      localStorage.removeItem('roomCode');
+      localStorage.removeItem('playerId');
+      localStorage.removeItem('isHost');
+      localStorage.removeItem('playerName');
+      window.location.href = '/';
     }
-  }).catch(() => showError('Yeniden bağlantı sağlanamadı.'));
+  }).catch(() => {
+    localStorage.removeItem('roomCode');
+    localStorage.removeItem('playerId');
+    localStorage.removeItem('isHost');
+    localStorage.removeItem('playerName');
+    window.location.href = '/';
+  });
 
   try {
     const configRes = await fetch('/api/config');

@@ -1,5 +1,13 @@
 // landing.js — Ana sayfa mantığı (Supabase & Vercel API uyumlu)
 
+document.addEventListener("DOMContentLoaded", () => {
+  const roomCode = localStorage.getItem('roomCode');
+  const playerId = localStorage.getItem('playerId');
+  if (roomCode && playerId) {
+    window.location.href = `/game.html?room=${roomCode}`;
+  }
+});
+
 const previewDilemmas = [
   "Önünde gizemli bir buton var. Her bastığında bugüne kadar iletişime geçtiğin <u>herhangi biri ölecek</u> — sokakta selam verdiğin biri de olabilir, annen de. Ancak karşılığında tam <strong>1 milyar dolar</strong> alacaksın. Butona basar mıydın?",
   "Dünya üzerinde <strong>ölümsüz</strong> olabilirsin ama bunun bedeli olarak sevdiğin <u>herkes 30 yıl içinde ölecek</u>. Sonsuz bir yalnızlık karşılığında ölümsüzlüğü kabul eder miydin?",
@@ -85,10 +93,10 @@ window.handleCreate = async function() {
     }
 
     if (res.ok && data.type === 'room_created') {
-      sessionStorage.setItem('playerId', data.playerId);
-      sessionStorage.setItem('roomCode', data.roomCode);
-      sessionStorage.setItem('isHost', 'true');
-      sessionStorage.setItem('playerName', name || 'Anonim');
+      localStorage.setItem('playerId', data.playerId);
+      localStorage.setItem('roomCode', data.roomCode);
+      localStorage.setItem('isHost', 'true');
+      localStorage.setItem('playerName', name || 'Anonim');
       window.location.href = `/game.html?room=${data.roomCode}`;
     } else {
       showError(data.message || data.error || `Oda oluşturulamadı (Hata: ${res.status})`);
@@ -131,10 +139,10 @@ window.handleJoin = async function() {
     }
 
     if (res.ok && data.type === 'room_joined') {
-      sessionStorage.setItem('playerId', data.playerId);
-      sessionStorage.setItem('roomCode', data.roomCode);
-      sessionStorage.setItem('isHost', data.isHost ? 'true' : 'false');
-      sessionStorage.setItem('playerName', name || 'Anonim');
+      localStorage.setItem('playerId', data.playerId);
+      localStorage.setItem('roomCode', data.roomCode);
+      localStorage.setItem('isHost', data.isHost ? 'true' : 'false');
+      localStorage.setItem('playerName', name || 'Anonim');
       window.location.href = `/game.html?room=${data.roomCode}`;
     } else {
       showError(data.message || data.error || 'Odaya girilemedi.');
