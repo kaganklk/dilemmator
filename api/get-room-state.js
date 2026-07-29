@@ -45,13 +45,17 @@ export default async function handler(req, res) {
       .eq('question_id', String(q.id));
 
     if (qAnswers && qAnswers.length > 0) {
-      answers = qAnswers.map(a => ({
-        playerId: Number(a.player_id),
-        name: a.player_name || 'Anonim',
-        color: a.player_color || '#666',
-        answer: a.answer,
-        questionId: a.question_id
-      }));
+      const uniqueMap = new Map();
+      for (const a of qAnswers) {
+        uniqueMap.set(Number(a.player_id), {
+          playerId: Number(a.player_id),
+          name: a.player_name || 'Anonim',
+          color: a.player_color || '#666',
+          answer: a.answer,
+          questionId: a.question_id
+        });
+      }
+      answers = Array.from(uniqueMap.values());
     }
 
     if (answers.length >= totalPlayers && activePlayers.length > 0) {

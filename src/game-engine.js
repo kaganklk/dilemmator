@@ -40,17 +40,17 @@ export class GameEngine {
     }
     settings.usedQuestions = usedIds;
 
-    // HIZ ODAKLI MOD: Eski cevapları silme ve odayı güncelleme işlemlerini paralel (aynı anda) çalıştır!
-    const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
-    const updatePromise = supabase.from('rooms').update({
+    // ÖNCE eski cevapleri kesin olarak sil, yarış koşulunu engelle!
+    await supabase.from('answers').delete().eq('room_code', roomCode);
+
+    // SONRA oda durumunu güncelle
+    await supabase.from('rooms').update({
       state: 'playing',
       questions: selectedQuestions,
       current_question_index: 0,
       play_again_votes: [],
       settings: settings
     }).eq('code', roomCode);
-
-    await Promise.all([deletePromise, updatePromise]);
 
     return {
       id: firstQ.id,
@@ -108,7 +108,11 @@ export class GameEngine {
     ]);
 
     const totalPlayers = playersRes.count || 1;
-    const totalAnswered = answersRes.data ? answersRes.data.length : 0;
+    let totalAnswered = 0;
+    if (answersRes.data) {
+      const uniquePlayers = new Set(answersRes.data.map(a => Number(a.player_id)));
+      totalAnswered = uniquePlayers.size;
+    }
     const allAnswered = totalAnswered >= totalPlayers;
 
     if (allAnswered) {
@@ -148,7 +152,14 @@ export class GameEngine {
     const playerAnswers = [];
 
     if (qAnswers) {
+      // Bir oyuncunun cevabı iki kez sayılmasın diye Map kullanıyoruz
+      const uniqueAnswersMap = new Map();
+      
       for (const ans of qAnswers) {
+        uniqueAnswersMap.set(Number(ans.player_id), ans);
+      }
+
+      for (const ans of uniqueAnswersMap.values()) {
         if (ans.answer === 'yapardim') yapardim++;
         else yapmazdim++;
 
