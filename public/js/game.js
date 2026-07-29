@@ -406,6 +406,8 @@ function showResults(data) {
   `).join('');
 
   const nextBtn = document.getElementById('next-btn');
+  nextBtn.disabled = false;
+  nextBtn.style.pointerEvents = '';
   if (data.isLastQuestion) {
     nextBtn.textContent = 'Sonucu Gör 🏆';
   } else {
