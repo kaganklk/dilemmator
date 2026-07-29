@@ -16,7 +16,29 @@ function shuffle(arr) {
 export class GameEngine {
   async startGame(roomCode, questionCount) {
     const count = Math.min(questionCount || 10, allDilemmas.length);
-    const selectedQuestions = shuffle(allDilemmas).slice(0, count);
+
+    // Odanın mevcut ayarlarını (kullanılmış sorular listesini) çek
+    const { data: room } = await supabase.from('rooms').select('settings').eq('code', roomCode).single();
+    let settings = room?.settings || { questionCount: 10, usedQuestions: [] };
+    let usedIds = settings.usedQuestions || [];
+
+    // Kullanılmamış soruları filtrele
+    let availableQuestions = allDilemmas.filter(q => !usedIds.includes(q.id));
+
+    // Eğer yeterli soru kalmadıysa, o odanın listesini sıfırla
+    if (availableQuestions.length < count) {
+      usedIds = [];
+      availableQuestions = [...allDilemmas];
+    }
+
+    const selectedQuestions = shuffle(availableQuestions).slice(0, count);
+
+    // İlk soru gösterildiği için, o sorunun ID'sini listeye ekle
+    const firstQ = selectedQuestions[0];
+    if (firstQ && !usedIds.includes(firstQ.id)) {
+      usedIds.push(firstQ.id);
+    }
+    settings.usedQuestions = usedIds;
 
     // HIZ ODAKLI MOD: Eski cevapları silme ve odayı güncelleme işlemlerini paralel (aynı anda) çalıştır!
     const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
@@ -24,12 +46,12 @@ export class GameEngine {
       state: 'playing',
       questions: selectedQuestions,
       current_question_index: 0,
-      play_again_votes: []
+      play_again_votes: [],
+      settings: settings
     }).eq('code', roomCode);
 
     await Promise.all([deletePromise, updatePromise]);
 
-    const firstQ = selectedQuestions[0];
     return {
       id: firstQ.id,
       text: firstQ.text,
@@ -155,7 +177,7 @@ export class GameEngine {
   async nextQuestion(roomCode) {
     const { data: room } = await supabase
       .from('rooms')
-      .select('questions, current_question_index')
+      .select('questions, current_question_index, settings')
       .eq('code', roomCode)
       .maybeSingle();
 
@@ -163,8 +185,22 @@ export class GameEngine {
 
     const nextIndex = room.current_question_index + 1;
     if (nextIndex < room.questions.length) {
-      await supabase.from('rooms').update({ current_question_index: nextIndex, state: 'playing' }).eq('code', roomCode);
       const nextQ = room.questions[nextIndex];
+      
+      // Gösterilen sorunun ID'sini kullanılmış sorulara ekle
+      let settings = room.settings || { questionCount: 10, usedQuestions: [] };
+      let usedIds = settings.usedQuestions || [];
+      if (!usedIds.includes(nextQ.id)) {
+        usedIds.push(nextQ.id);
+        settings.usedQuestions = usedIds;
+      }
+
+      await supabase.from('rooms').update({ 
+        current_question_index: nextIndex, 
+        state: 'playing',
+        settings: settings
+      }).eq('code', roomCode);
+      
       return {
         gameOver: false,
         question: {

@@ -85,7 +85,7 @@ export class RoomManager {
       code,
       host_player_id: hostId.toString(),
       state: 'lobby',
-      settings: { questionCount: 10 },
+      settings: { questionCount: 10, usedQuestions: [] },
       questions: [],
       current_question_index: -1,
       play_again_votes: [],
