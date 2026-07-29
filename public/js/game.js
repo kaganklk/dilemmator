@@ -261,13 +261,8 @@ window.submitAnswer = async function(answer) {
       body: JSON.stringify({ roomCode, playerId: myPlayerId, answer })
     });
     const data = await res.json();
-    if (res.ok && data.allAnswered && data.qResults) {
-      sendClientBroadcast('question_results', data.qResults);
-      const delay = (currentPlayers.length <= 1) ? 0 : 300;
-      setTimeout(() => {
-        showResults(data.qResults);
-      }, delay);
-    }
+    // Sunucu yanıtından sonuç ekranı TETİKLENMEZ.
+    // Optimistic sonuç zaten gösterildi, sunucu broadcast'i de dedup ile engellenir.
   } catch (err) {
     showError('Cevap gönderilemedi, tekrar denenebilir.');
     hasAnswered = false;
@@ -347,8 +342,9 @@ function triggerOptimisticResultsIfNeeded() {
       };
     });
     const total = yapardimCount + yapmazdimCount;
-    const yapardimPercent = total > 0 ? Math.round((yapardimCount / total) * 100) : 50;
-    const yapmazdimPercent = total > 0 ? (100 - yapardimPercent) : 50;
+    if (total === 0) return; // Cevap yoksa sonuç gösterme
+    const yapardimPercent = Math.round((yapardimCount / total) * 100);
+    const yapmazdimPercent = 100 - yapardimPercent;
 
     const counterText = document.getElementById('q-counter')?.textContent || 'Soru 1 / 10';
     const parts = counterText.replace('Soru ', '').split(' / ');
@@ -357,25 +353,31 @@ function triggerOptimisticResultsIfNeeded() {
 
     const optimisticResults = {
       question: document.getElementById('q-text')?.innerHTML || '',
+      questionId: currentQuestionId,
       yapardimPercent,
       yapmazdimPercent,
       playerAnswers,
       isLastQuestion: !isNaN(currentIdx) && !isNaN(totalCount) && currentIdx >= totalCount
     };
 
-    const delay = (totalPly <= 1) ? 0 : 350;
-    setTimeout(() => {
+    // Tek kişi için gecikmesiz, çok kişi için kısa gecikme
+    if (totalPly <= 1) {
       showResults(optimisticResults);
-    }, delay);
+    } else {
+      setTimeout(() => {
+        showResults(optimisticResults);
+      }, 350);
+    }
   }
 }
 
 // ── Results rendering ──
 function showResults(data) {
   if (!data) return;
-  const resFlag = `state_res_${data.question || currentQuestionId}`;
+  // Dedup: soru ID'sine göre kontrol et (metin farklılıklarından etkilenmesin)
+  const resQuestionId = data.questionId || currentQuestionId;
+  const resFlag = `state_res_${resQuestionId}`;
   if (isDuplicateEvent(resFlag)) {
-    // Realtime ve Polling aynı anda state değişikliği (herkes cevap verdi) algılarsa soru/sonuç ekrana ikinci kez çizilmez!
     return;
   }
   if (currentResultQuestionText === data.question && document.getElementById('scene-results')?.classList.contains('active')) {

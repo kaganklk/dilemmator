@@ -91,8 +91,14 @@ export class GameEngine {
     const currentQ = room.questions[room.current_question_index];
     if (!currentQ) return null;
 
-    // Cevabın insert edilmesini ve verilerin sayılmasını aynı anda tetikle
-    await supabase.from('answers').upsert({
+    // Cevabı kaydet — önce mevcut cevabı kontrol et, varsa güncelle, yoksa ekle
+    // (upsert yerine delete+insert kullanarak unique constraint sorununu aşıyoruz)
+    await supabase.from('answers').delete()
+      .eq('room_code', roomCode)
+      .eq('question_id', currentQ.id.toString())
+      .eq('player_id', playerId.toString());
+    
+    await supabase.from('answers').insert({
       room_code: roomCode,
       question_id: currentQ.id.toString(),
       player_id: playerId.toString(),
