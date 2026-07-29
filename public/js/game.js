@@ -322,7 +322,9 @@ function addLiveAnswer(data) {
     if (countEl) countEl.textContent = `${totalAns} / ${totalPly} kişi cevapladı`;
   }
 
-  triggerOptimisticResultsIfNeeded();
+  // NOT: Sonuç ekranı burada TETİKLENMEZ.
+  // Sonuç sadece kullanıcı kendi cevabını verdiğinde (submitAnswer → triggerOptimisticResultsIfNeeded)
+  // veya sunucu broadcast'i (question_results) ile tetiklenir.
 }
 
 function triggerOptimisticResultsIfNeeded() {
@@ -851,12 +853,11 @@ async function syncStateFromDatabase() {
         }
       }
     } else if (data.state === 'playing') {
-      if (data.allAnswered && data.qResults) {
-        const delay = (currentPlayers.length <= 1) ? 0 : 300;
-        setTimeout(() => showResults(data.qResults), delay);
-      } else if (data.currentQuestion) {
+      // Polling/sync'ten sonuç ekranı TETİKLENMEZ. Sadece soru göster.
+      if (data.currentQuestion) {
         showQuestion(data.currentQuestion);
-        if (data.answers) {
+        // Mevcut cevapları göster ama sonuç ekranını tetikleme
+        if (data.answers && !hasAnswered) {
           data.answers.forEach(a => addLiveAnswer(a));
         }
       }
@@ -923,15 +924,20 @@ function setupRealtimeChannel(config) {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `room_code=eq.${roomCode}` }, (payload) => {
       resetPollingTimer();
+      // Supabase'den gelen cevap güncellemeleri sadece avatar göstermek için kullanılır,
+      // sonuç ekranını TETİKLEMEZ. Sadece kendi cevabımız sonuç tetikler.
       if (payload.new && payload.new.question_id && (Number(payload.new.question_id) === Number(currentQuestionId) || String(payload.new.question_id) === String(currentQuestionId))) {
-        addLiveAnswer({
-          playerId: Number(payload.new.player_id),
-          name: payload.new.player_name || 'Anonim',
-          color: payload.new.player_color || '#666',
-          answer: payload.new.answer,
-          questionId: payload.new.question_id,
-          totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
-        });
+        // Kendi cevabımızı zaten yerel olarak ekliyoruz, tekrar eklemeyelim
+        if (Number(payload.new.player_id) !== Number(myPlayerId)) {
+          addLiveAnswer({
+            playerId: Number(payload.new.player_id),
+            name: payload.new.player_name || 'Anonim',
+            color: payload.new.player_color || '#666',
+            answer: payload.new.answer,
+            questionId: payload.new.question_id,
+            totalPlayers: currentPlayers.filter(p => p.connected !== false).length || 1
+          });
+        }
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` }, (payload) => {
@@ -950,17 +956,9 @@ function setupRealtimeChannel(config) {
             playBtn.textContent = `${room.play_again_votes.length}/${activeCount} Onayladı`;
           }
         }
-        if (room.state === 'playing' && room.questions && room.current_question_index >= 0) {
-          const q = room.questions[room.current_question_index];
-          if (q && q.id !== currentQuestionId) {
-            showQuestion({
-              id: q.id,
-              text: q.text,
-              index: room.current_question_index,
-              total: room.questions.length
-            });
-          }
-        } else if (room.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
+        // Supabase realtime rooms güncellemesinden soru değiştirme YAPILMAZ.
+        // Soru değişimi sadece broadcast event'leri (new_question, game_started) ile olur.
+        if (room.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
           currentQuestionId = null;
           currentResultQuestionText = null;
           showScene('lobby');

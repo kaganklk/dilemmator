@@ -206,6 +206,9 @@ export class GameEngine {
         settings.usedQuestions = usedIds;
       }
 
+      // Yeni soruya geçmeden ÖNCE tüm eski cevapları sil (sahte sonuç ekranı engeli)
+      await supabase.from('answers').delete().eq('room_code', roomCode);
+
       const { data: updateResult, error: updateError } = await supabase.from('rooms').update({ 
         current_question_index: nextIndex, 
         state: 'playing',
