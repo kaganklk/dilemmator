@@ -45,7 +45,7 @@
 
   <!-- ═══ LOBBY ═══ -->
   <div class="scene" id="scene-lobby">
-    <div class="back-button" onclick="localStorage.clear(); window.location.href='/'" title="Odadan Çık ve Ana Sayfaya Dön">
+    <div class="back-button" onclick="confirmLeaveRoom()" title="Odadan Çık">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
     </div>
 
@@ -68,7 +68,7 @@
         <div class="setting-label">Soru Sayısı</div>
         <div class="setting-control">
           <button class="setting-btn" onclick="changeQuestionCount(-1)">−</button>
-          <input type="number" class="setting-value" id="question-count" value="10" min="1" max="10" onchange="onQuestionCountInput()" oninput="onQuestionCountInput()">
+          <input type="number" class="setting-value" id="question-count" value="10" onchange="onQuestionCountInput()" oninput="onQuestionCountInput()">
           <button class="setting-btn" onclick="changeQuestionCount(1)">+</button>
         </div>
       </div>
@@ -86,7 +86,7 @@
   <!-- ═══ QUESTION ═══ -->
   <div class="scene" id="scene-question">
     <div class="question-header">
-      <div class="back-button" onclick="localStorage.clear(); window.location.href='/'" title="Odadan Çık ve Ana Sayfaya Dön">
+      <div class="back-button" onclick="confirmLeaveRoom()" title="Odadan Çık">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
       </div>
       <div class="question-counter" id="q-counter">Soru 1 / 10</div>
@@ -174,7 +174,19 @@
 <div class="copied-toast" id="copied-toast">Oda kodu kopyalandı ✓</div>
 <div class="error-toast" id="error-toast"></div>
 
+<!-- Leave Room Confirmation Modal -->
+<div class="modal-overlay" id="leave-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">Odadan çıkmak istediğine emin misin?</div>
+    <div class="modal-desc">Oyundan ayrılacaksın. Geri dönemeyebilirsin.</div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="document.getElementById('leave-modal').style.display='none'">Hayır, Kal</button>
+      <button class="modal-btn confirm" onclick="localStorage.clear(); window.location.href='/'">Evet, Çık</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/game.js?v=12"></script>
+<script src="/js/game.js?v=13"></script>
 </body>
 </html>

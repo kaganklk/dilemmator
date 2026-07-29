@@ -96,6 +96,11 @@ window.copyCode = function() {
   setTimeout(() => toast.classList.remove('show'), 2000);
 };
 
+window.confirmLeaveRoom = function() {
+  const modal = document.getElementById('leave-modal');
+  if (modal) modal.style.display = 'flex';
+};
+
 // ── Sidebar ──
 function updateSidebar(players) {
   currentPlayers = players || [];
