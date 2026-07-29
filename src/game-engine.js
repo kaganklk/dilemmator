@@ -300,7 +300,7 @@ export class GameEngine {
   async playAgain(roomCode, playerId) {
     const { data: room } = await supabase
       .from('rooms')
-      .select('play_again_votes, state')
+      .select('play_again_votes, state, settings')
       .eq('code', roomCode)
       .maybeSingle();
 
@@ -327,10 +327,15 @@ export class GameEngine {
     if (allVoted) {
       // Herkes oyladı (veya odada tek kişi var), odayı sıfırla ve lobiye döndür
       const deletePromise = supabase.from('answers').delete().eq('room_code', roomCode);
+      
+      let currentSettings = room.settings || { questionCount: 10, usedQuestions: [] };
+      currentSettings.usedQuestions = [];
+
       const updatePromise = supabase.from('rooms').update({
         state: 'lobby',
         play_again_votes: [],
-        current_question_index: 0
+        current_question_index: 0,
+        settings: currentSettings
       }).eq('code', roomCode);
 
       await Promise.all([deletePromise, updatePromise]);
