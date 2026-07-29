@@ -278,14 +278,13 @@ export class RoomManager {
       validVotesCount = validVotes.length;
 
       if ((players || []).length > 0 && validVotesCount >= activeCount) {
-        await Promise.all([
-          supabase.from('answers').delete().eq('room_code', code),
-          supabase.from('rooms').update({
+        // ÖNCE tüm cevapları sil, SONRA odayı güncelle (yarış koşulu engeli)
+        await supabase.from('answers').delete().eq('room_code', code);
+        await supabase.from('rooms').update({
             state: 'lobby',
             play_again_votes: [],
             current_question_index: 0
-          }).eq('code', code)
-        ]);
+          }).eq('code', code);
         shouldResetToLobby = true;
         lobbyData = {
           players: playersInfo,

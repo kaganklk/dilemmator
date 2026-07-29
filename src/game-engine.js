@@ -358,13 +358,15 @@ export class GameEngine {
       currentSettings.usedQuestions = [];
 
       // Sadece play_again_votes ve settings (sıfırlanmış) güncelleniyor.
-      // Kalan (answers silinmesi, questions atanması ve state='playing') işlemini startGame halledecek.
       await supabase.from('rooms').update({
         play_again_votes: [],
         settings: currentSettings
       }).eq('code', roomCode);
 
-      // Sonra yeni oyunu başlat (yarış koşulu olmasın diye bekleyerek yapıyoruz)
+      // Yeni oyun başlamadan ÖNCE tüm eski cevapları kesin olarak sil
+      await supabase.from('answers').delete().eq('room_code', roomCode);
+
+      // Sonra yeni oyunu başlat (startGame içinde de silme var ama bu ek güvenlik katmanı)
       const firstQ = await this.startGame(roomCode, currentSettings.questionCount);
 
       return {
