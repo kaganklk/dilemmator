@@ -253,11 +253,19 @@ function showQuestion(question) {
     return;
   }
 
+  // ── Aynı soruya cevap verildikten sonra geri dönme ──
+  // Kullanıcı bu soruyu zaten cevapladıysa, polling/realtime onu tekrar gösteremesin
+  if (hasAnswered && currentQuestionId === question.id) {
+    console.log(`[Dedup] Cevaplanan soru yoksayıldı: Q${question.id}`);
+    return;
+  }
+
   if (currentQuestionId === question.id && document.getElementById('scene-question')?.classList.contains('active')) {
     return;
   }
-  // Eğer bu sorunun sonuç ekrana çoktan geçildiysé polling'in eski state'le soruyu tekrar göstermesi yasadışı!
-  if (document.getElementById('scene-results')?.classList.contains('active') && processedEventIds.has(`state_res_${question.text || qId}`)) {
+  // Bu sorunun sonucu zaten gösterildiyse soruya geri dönme (ID bazlı kontrol)
+  if (processedEventIds.has(`state_res_${question.id || qId}`)) {
+    console.log(`[Dedup] Sonucu gösterilmiş soru yoksayıldı: Q${question.id}`);
     return;
   }
 
