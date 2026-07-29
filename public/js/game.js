@@ -873,6 +873,17 @@ async function syncStateFromDatabase() {
           data.answers.forEach(a => addLiveAnswer(a));
         }
       }
+    } else if (data.state === 'results') {
+      // Sayfa yenilendiğinde oda 'results' durumundaysa sonuçları göster
+      if (data.qResults) {
+        showResults(data.qResults);
+      } else if (data.currentQuestion) {
+        // Sonuç verisi yoksa en azından soruyu göster
+        showQuestion(data.currentQuestion);
+      }
+    } else if (data.state === 'end') {
+      // Sayfa yenilendiğinde oda 'end' durumundaysa oyun sonu ekranını göster
+      showGameEnd(data);
     }
   } catch (err) {
     console.error('Veritabanı state sync hatası:', err);

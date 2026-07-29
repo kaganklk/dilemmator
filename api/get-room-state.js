@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   let allAnswered = false;
   let qResults = null;
 
-  if (room.state === 'playing' && room.questions && room.currentQuestionIndex >= 0 && room.currentQuestionIndex < room.questions.length) {
+  if ((room.state === 'playing' || room.state === 'results') && room.questions && room.currentQuestionIndex >= 0 && room.currentQuestionIndex < room.questions.length) {
     const q = room.questions[room.currentQuestionIndex];
     currentQuestion = {
       id: q.id,
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       answers = Array.from(uniqueMap.values());
     }
 
-    if (answers.length >= totalPlayers && activePlayers.length > 0) {
+    if ((room.state === 'results' || (answers.length >= totalPlayers && activePlayers.length > 0))) {
       allAnswered = true;
       qResults = await engine.getQuestionResults(cleanCode);
     }
