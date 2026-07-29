@@ -195,11 +195,18 @@ export class GameEngine {
         settings.usedQuestions = usedIds;
       }
 
-      await supabase.from('rooms').update({ 
+      const { data: updateResult, error: updateError } = await supabase.from('rooms').update({ 
         current_question_index: nextIndex, 
         state: 'playing',
         settings: settings
-      }).eq('code', roomCode);
+      })
+      .eq('code', roomCode)
+      .eq('current_question_index', room.current_question_index)
+      .select('code');
+
+      if (updateError || !updateResult || updateResult.length === 0) {
+        return { error: 'Bu soru zaten değiştirilmiş (yarış koşulu)' };
+      }
       
       return {
         gameOver: false,
@@ -211,7 +218,14 @@ export class GameEngine {
         },
       };
     } else {
-      await supabase.from('rooms').update({ state: 'end' }).eq('code', roomCode);
+      const { data: updateResult, error: updateError } = await supabase.from('rooms').update({ state: 'end' })
+        .eq('code', roomCode)
+        .eq('current_question_index', room.current_question_index)
+        .select('code');
+
+      if (updateError || !updateResult || updateResult.length === 0) {
+        return { error: 'Oyun zaten sonlandırılmış (yarış koşulu)' };
+      }
       const results = await this.getGameEndResults(roomCode, room.questions);
       return {
         gameOver: true,

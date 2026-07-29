@@ -20,6 +20,11 @@ export default async function handler(req, res) {
   }
 
   const nextRes = await engine.nextQuestion(roomCode);
+  if (nextRes.error) {
+    // Yarış koşulu (race condition) gibi durumlarda, error dönüyoruz.
+    return res.status(200).json({ success: false, error: nextRes.error });
+  }
+
   if (nextRes.gameOver) {
     await broadcast(roomCode, 'game_ended', nextRes.results);
   } else {
