@@ -98,6 +98,13 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
+      if (!path.extname(filePath)) {
+        const htmlPath = filePath + '.html';
+        if (fs.existsSync(htmlPath)) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return fs.createReadStream(htmlPath).pipe(res);
+        }
+      }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end('404 - Dosya Bulunamadı (Dilemmator Local Dev)');
     }
