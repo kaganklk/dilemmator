@@ -234,7 +234,7 @@ export class RoomManager {
     const room = await this.getRoom(roomCode);
     if (!room || Number(playerId) !== room.hostId) return null;
 
-    const count = Math.max(3, Math.min(20, parseInt(newQuestionCount) || 10));
+    const count = Math.max(1, Math.min(10, parseInt(newQuestionCount) || 10));
     const newSettings = { ...room.settings, questionCount: count };
 
     await supabase

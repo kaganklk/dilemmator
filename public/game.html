@@ -68,7 +68,7 @@
         <div class="setting-label">Soru Sayısı</div>
         <div class="setting-control">
           <button class="setting-btn" onclick="changeQuestionCount(-1)">−</button>
-          <div class="setting-value" id="question-count">10</div>
+          <input type="number" class="setting-value" id="question-count" value="10" min="1" max="10" onchange="onQuestionCountInput()" oninput="onQuestionCountInput()">
           <button class="setting-btn" onclick="changeQuestionCount(1)">+</button>
         </div>
       </div>
@@ -172,6 +172,6 @@
 <div class="error-toast" id="error-toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/game.js?v=10"></script>
+<script src="/js/game.js?v=11"></script>
 </body>
 </html>

@@ -532,9 +532,23 @@ footer {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 22px;
   color: var(--white);
-  width: 30px;
+  width: 48px;
   text-align: center;
   letter-spacing: 0.05em;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px 4px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.setting-value::-webkit-outer-spin-button,
+.setting-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.setting-value:focus {
+  border-color: var(--accent);
 }
 
 .waiting-text {

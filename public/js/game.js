@@ -164,28 +164,56 @@ function renderPlayers(players) {
 // ── Settings ──
 let lastSettingUpdateTime = 0;
 let updateSettingsTimeout = null;
+let pendingSettingsPromise = null;
 
-window.changeQuestionCount = async function(delta) {
-  if (!isHost) return;
+function getQuestionCountValue() {
   const el = document.getElementById('question-count');
-  let val = parseInt(el.textContent, 10) + delta;
-  val = Math.max(3, Math.min(20, val));
-  el.textContent = val;
+  return parseInt(el.value, 10) || 10;
+}
+
+function setQuestionCountValue(val) {
+  val = Math.max(1, Math.min(10, val));
+  const el = document.getElementById('question-count');
+  el.value = val;
+  return val;
+}
+
+async function sendSettingsUpdate(val) {
   lastSettingUpdateTime = Date.now();
   sendClientBroadcast('settings_updated', { settings: { questionCount: val } });
 
   if (updateSettingsTimeout) clearTimeout(updateSettingsTimeout);
-  updateSettingsTimeout = setTimeout(async () => {
-    try {
-      await fetch('/api/update-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomCode, playerId: myPlayerId, questionCount: val })
-      });
-    } catch (err) {
-      console.error('Ayar güncelleme hatası:', err);
-    }
-  }, 250);
+  pendingSettingsPromise = new Promise((resolve) => {
+    updateSettingsTimeout = setTimeout(async () => {
+      try {
+        await fetch('/api/update-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomCode, playerId: myPlayerId, questionCount: val })
+        });
+      } catch (err) {
+        console.error('Ayar güncelleme hatası:', err);
+      }
+      resolve();
+    }, 250);
+  });
+}
+
+window.changeQuestionCount = async function(delta) {
+  if (!isHost) return;
+  let val = getQuestionCountValue() + delta;
+  val = setQuestionCountValue(val);
+  await sendSettingsUpdate(val);
+};
+
+window.onQuestionCountInput = async function() {
+  if (!isHost) return;
+  const el = document.getElementById('question-count');
+  let raw = parseInt(el.value, 10);
+  if (isNaN(raw) || raw < 1) return; // Yazma devam ediyor, bekle
+  let val = Math.max(1, Math.min(10, raw));
+  if (raw !== val) el.value = val; // Geçersiz değeri düzelt
+  await sendSettingsUpdate(val);
 };
 
 // ── Question rendering ──
@@ -510,7 +538,7 @@ async function showGameEnd(data) {
 
   // Çekilen veriden gerçek tagleri ('cani', 'paragoz', 'bencil') sayarak ödülleri adilce hesapla!
   if (allAnswers && allAnswers.length > 0) {
-    const totalQCount = roomQuestions ? roomQuestions.length : parseInt(document.getElementById('question-count')?.textContent || '10', 10);
+    const totalQCount = roomQuestions ? roomQuestions.length : parseInt(document.getElementById('question-count')?.value || '10', 10);
     const playerStats = {};
     const playersList = (lastGameEndData.players && lastGameEndData.players.length > 0 ? lastGameEndData.players : currentPlayers).map(p => ({
       id: Number(p.id),
@@ -684,6 +712,26 @@ window.startGame = async function() {
   const startBtn = document.getElementById('start-btn');
   startBtn.disabled = true;
   startBtn.textContent = 'Başlatılıyor...';
+
+  // Bekleyen ayar güncellemesi varsa önce onu tamamla
+  if (pendingSettingsPromise) {
+    await pendingSettingsPromise;
+    pendingSettingsPromise = null;
+  }
+  // Debounce timer'ı hâlâ bekliyorsa anında çalıştır
+  if (updateSettingsTimeout) {
+    clearTimeout(updateSettingsTimeout);
+    updateSettingsTimeout = null;
+    const val = getQuestionCountValue();
+    try {
+      await fetch('/api/update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomCode, playerId: myPlayerId, questionCount: val })
+      });
+    } catch (err) {}
+  }
+
   try {
     const res = await fetch('/api/start-game', {
       method: 'POST',
@@ -727,7 +775,7 @@ function handleServerMessage(msg) {
       }
       document.getElementById('lobby-code').textContent = msg.roomCode || roomCode;
       if (msg.settings && msg.settings.questionCount) {
-        document.getElementById('question-count').textContent = msg.settings.questionCount;
+        document.getElementById('question-count').value = msg.settings.questionCount;
       }
       if (msg.players) renderPlayers(msg.players);
 
@@ -763,7 +811,7 @@ function handleServerMessage(msg) {
 
     case 'settings_updated':
       if (msg.settings && msg.settings.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
-        document.getElementById('question-count').textContent = msg.settings.questionCount;
+        document.getElementById('question-count').value = msg.settings.questionCount;
       }
       break;
 
@@ -805,7 +853,7 @@ function handleServerMessage(msg) {
       showScene('lobby');
       if (msg.players) renderPlayers(msg.players);
       if (msg.settings && msg.settings.questionCount) {
-        document.getElementById('question-count').textContent = msg.settings.questionCount;
+        document.getElementById('question-count').value = msg.settings.questionCount;
       }
       break;
 
@@ -849,7 +897,7 @@ async function syncStateFromDatabase() {
     }
     if (data.settings?.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
       const qc = document.getElementById('question-count');
-      if (qc) qc.textContent = data.settings.questionCount;
+      if (qc) qc.value = data.settings.questionCount;
     }
     if (data.playAgainVotes && Array.isArray(data.playAgainVotes)) {
       const playBtn = document.getElementById('play-again-btn');
@@ -978,7 +1026,7 @@ function setupRealtimeChannel(config) {
         if (room.host_player_id) currentHostId = Number(room.host_player_id);
         if (room.settings && room.settings.questionCount && (!isHost || Date.now() - lastSettingUpdateTime > 1500)) {
           const countEl = document.getElementById('question-count');
-          if (countEl) countEl.textContent = room.settings.questionCount;
+          if (countEl) countEl.value = room.settings.questionCount;
         }
         if (room.play_again_votes && Array.isArray(room.play_again_votes)) {
           const playBtn = document.getElementById('play-again-btn');
@@ -996,7 +1044,7 @@ function setupRealtimeChannel(config) {
           renderPlayers(currentPlayers);
           if (room.settings?.questionCount) {
             const qc = document.getElementById('question-count');
-            if (qc) qc.textContent = room.settings.questionCount;
+            if (qc) qc.value = room.settings.questionCount;
           }
         }
       }
