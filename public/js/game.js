@@ -910,6 +910,19 @@ function handleServerMessage(msg) {
       break;
 
     case 'new_question':
+      // index=0 + oyun sonu ekranı = Tekrar Oyna tarafından tetiklenen yeni oyun başlangıcı
+      // HTTP yanıtı { votes:1 } gelen ilk oylayan da yeni oyuna girmeli
+      if (msg.index === 0 && document.getElementById('scene-end')?.classList.contains('active')) {
+        console.log('[new_question] Tekrar Oyna yeni oyun algılandı, state sıfırlanıyor.');
+        processedEventIds.clear();
+        hasAnswered = false;
+        currentQuestionAnswers = [];
+        currentQuestionId = null;
+        currentQuestionIndex = -1;
+        currentResultQuestionText = null;
+        gameEndScreenFrozen = false;
+        lastGameEndData = null;
+      }
       showQuestion(msg);
       break;
 

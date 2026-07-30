@@ -365,10 +365,11 @@ export class GameEngine {
 
     const activeIds = (activePlayers || []).map(p => p.id.toString());
     const total = activeIds.length || 1;
-    const validVotes = votes.filter(v => activeIds.includes(v.toString()));
-    const allVoted = validVotes.length >= total;
 
-    if (allVoted) {
+    // Oy kaydedilmeden ÖNCE allVoted kontrolü (önceki state'e göre)
+    const validVotes = votes.filter(v => activeIds.includes(v.toString()));
+
+    if (validVotes.length >= total) {
       // Herkes oyladı (veya odada tek kişi var), önce state'i temizle ve listeyi sıfırla
       let currentSettings = room.settings || { questionCount: 10, usedQuestions: [] };
       currentSettings.usedQuestions = [];
@@ -398,9 +399,44 @@ export class GameEngine {
         .update({ play_again_votes: votes })
         .eq('code', roomCode);
 
+      // Yarış koşulu düzeltmesi: yazdıktan hemen sonra DB'yi tekrar oku.
+      // Eşzamanlı yazma nedeniyle bizim oyumuz üzerine yazılmış olabilir.
+      // Taze durumu ve bizim bildiğimiz oyu birleştirerek allVoted'ı doğru hesapla.
+      const { data: freshRoom } = await supabase
+        .from('rooms')
+        .select('play_again_votes')
+        .eq('code', roomCode)
+        .maybeSingle();
+
+      const freshVotes = freshRoom?.play_again_votes || votes;
+      // Birleştir: DB'deki oylar + bizim oyumuz (eğer ezildiyse de dahil et)
+      const mergedIds = [...new Set([...freshVotes.map(String), pidStr])];
+      const mergedValidVotes = mergedIds.filter(v => activeIds.includes(v));
+
+      if (mergedValidVotes.length >= total) {
+        // Yarış koşulu: diğer oyuncu da oy kullandı ama üstüne yazdık, biz de tetikliyoruz
+        let currentSettings = room.settings || { questionCount: 10, usedQuestions: [] };
+        currentSettings.usedQuestions = [];
+
+        await supabase.from('rooms').update({
+          play_again_votes: [],
+          settings: currentSettings
+        }).eq('code', roomCode);
+
+        await supabase.from('answers').delete().eq('room_code', roomCode);
+        const firstQ = await this.startGame(roomCode, currentSettings.questionCount);
+
+        return {
+          reset: true,
+          votes: mergedValidVotes.length,
+          total,
+          firstQ
+        };
+      }
+
       return {
         reset: false,
-        votes: validVotes.length,
+        votes: freshVotes.filter(v => activeIds.includes(v.toString())).length,
         total
       };
     }
