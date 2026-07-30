@@ -25,11 +25,15 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: false, error: nextRes.error });
   }
 
+  // DB'ye yazma tamamlandı → hemen yanıt dön (host anında yeni soruyu görür)
+  // Broadcast arka planda gönderilir (diğer oyuncular Realtime ile yakalar)
+  res.status(200).json({ success: true, ...nextRes });
+
+  // Yanıt gönderildikten SONRA broadcast et (await bloklarken response gecikmesin)
   if (nextRes.gameOver) {
-    await broadcast(roomCode, 'game_ended', nextRes.results);
+    broadcast(roomCode, 'game_ended', nextRes.results).catch(console.error);
   } else {
-    await broadcast(roomCode, 'new_question', nextRes.question);
+    broadcast(roomCode, 'new_question', nextRes.question).catch(console.error);
   }
 
-  return res.status(200).json({ success: true, ...nextRes });
 }

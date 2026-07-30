@@ -931,8 +931,11 @@ function handleServerMessage(msg) {
 let isReconnecting = false;
 let pollingTimer = null;
 let lastRealtimeMsgTime = 0;
+let isSyncing = false; // Aynı anda iki polling isteği gitmesin
 
 async function syncStateFromDatabase() {
+  if (isSyncing) return; // Önceki istek bitmeden yeni istek gönderme
+  isSyncing = true;
   try {
     const res = await fetch('/api/get-room-state', {
       method: 'POST',
@@ -1001,19 +1004,21 @@ async function syncStateFromDatabase() {
     }
   } catch (err) {
     console.error('Veritabanı state sync hatası:', err);
+  } finally {
+    isSyncing = false;
   }
 }
 
-// ── Polling & Realtime Yedekleme Mekanizması (2 Saniye Kuralı) ──
+// ── Polling & Realtime Yedekleme Mekanizması (500ms, Realtime'dan sonra 1.5s sustur) ──
 function resetPollingTimer() {
   lastRealtimeMsgTime = Date.now();
   if (pollingTimer) clearInterval(pollingTimer);
-  // Realtime gelirse polling iptal edilir, Realtime gelmezse 2 saniye sonra devreye girer
+  // 500ms'de bir polling yap ama Realtime'dan sonra 1500ms bekle (Realtime zaten hızlı getirdi)
   pollingTimer = setInterval(async () => {
-    if (Date.now() - lastRealtimeMsgTime >= 2000) {
+    if (Date.now() - lastRealtimeMsgTime >= 1500) {
       await syncStateFromDatabase();
     }
-  }, 2000);
+  }, 500);
 }
 
 // ── Supabase Realtime Otomatik Yeniden Bağlanma & Loglama ──
@@ -1131,35 +1136,52 @@ async function initGame() {
   document.getElementById('lobby-code').textContent = roomCode;
   const name = localStorage.getItem('playerName') || 'Anonim';
 
-  fetch('/api/rejoin-room', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code: roomCode, playerId: myPlayerId, name })
-  }).then(r => r.json()).then(data => {
-    if (data && data.type === 'room_joined') {
-      handleServerMessage(data);
-    } else {
+  // Lobi ekranını HEMEN göster — Supabase yanıtı beklenmez
+  // (rejoin-room ve config paralel olarak arka planda çalışır)
+  showScene('lobby');
+  if (!isHost) {
+    document.getElementById('lobby-settings')?.querySelectorAll('.setting-btn').forEach(b => {
+      b.style.display = 'none';
+    });
+  }
+
+  // rejoin-room ve config aynı anda paralel gönderilir
+  const [rejoinPromise, configPromise] = [
+    fetch('/api/rejoin-room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: roomCode, playerId: myPlayerId, name })
+    }),
+    fetch('/api/config')
+  ];
+
+  // Config gelir gelmez Realtime'ı kur (rejoin'i bekleme)
+  configPromise
+    .then(r => r.json())
+    .then(config => setupRealtimeChannel(config))
+    .catch(err => console.error('Realtime abonelik hatası:', err));
+
+  // rejoin-room yanıtı gelince state'i güncelle (mevcut soru/sonuç ekranına geçiş)
+  rejoinPromise
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.type === 'room_joined') {
+        handleServerMessage(data);
+      } else {
+        localStorage.removeItem('roomCode');
+        localStorage.removeItem('playerId');
+        localStorage.removeItem('isHost');
+        localStorage.removeItem('playerName');
+        window.location.href = '/';
+      }
+    })
+    .catch(() => {
       localStorage.removeItem('roomCode');
       localStorage.removeItem('playerId');
       localStorage.removeItem('isHost');
       localStorage.removeItem('playerName');
       window.location.href = '/';
-    }
-  }).catch(() => {
-    localStorage.removeItem('roomCode');
-    localStorage.removeItem('playerId');
-    localStorage.removeItem('isHost');
-    localStorage.removeItem('playerName');
-    window.location.href = '/';
-  });
-
-  try {
-    const configRes = await fetch('/api/config');
-    const config = await configRes.json();
-    setupRealtimeChannel(config);
-  } catch (err) {
-    console.error('Realtime abonelik hatası:', err);
-  }
+    });
 }
 
 initGame();
