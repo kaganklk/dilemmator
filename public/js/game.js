@@ -1047,11 +1047,15 @@ async function syncStateFromDatabase() {
   }
 }
 
-// ── Polling & Realtime Yedekleme Mekanizması (2s, Realtime'dan sonra 2s sustur) ──
-function resetPollingTimer() {
+// ── Polling & Realtime Yedekleme Mekanizması ──
+// markRealtimeActive: her mesajda sadece timestamp güncelle (interval churning yok)
+// startPolling: TEK kalıcı interval başlat, realtime yoksa 2s sonra sync yap
+function markRealtimeActive() {
   lastRealtimeMsgTime = Date.now();
-  if (pollingTimer) clearInterval(pollingTimer);
-  // Realtime gelince polling 2 saniye dondurulur; Realtime gelmezse polling devreye girer
+}
+
+function startPolling() {
+  if (pollingTimer) return; // Zaten çalışıyor — tekrar başlatma
   pollingTimer = setInterval(async () => {
     if (Date.now() - lastRealtimeMsgTime >= 2000) {
       await syncStateFromDatabase();
@@ -1073,12 +1077,12 @@ function setupRealtimeChannel(config) {
     .channel(`room:${roomCode}`, { config: { broadcast: { self: false, ack: false } } });
   roomChannel
     .on('broadcast', { event: '*' }, (payload) => {
-      resetPollingTimer();
+      markRealtimeActive();
       handleServerMessage(payload.payload);
     })
     // ── SUPABASE REALTIME (postgres_changes) DOĞRUDAN PAYLOAD.NEW KULLANIMI (0-REFETCH) ──
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_code=eq.${roomCode}` }, (payload) => {
-      resetPollingTimer();
+      markRealtimeActive();
       if (payload.eventType === 'DELETE' || (payload.old && !payload.new?.id)) {
         const deletedId = Number(payload.old?.id);
         if (!isNaN(deletedId)) {
@@ -1103,7 +1107,7 @@ function setupRealtimeChannel(config) {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `room_code=eq.${roomCode}` }, (payload) => {
-      resetPollingTimer();
+      markRealtimeActive();
       // Supabase'den gelen cevap güncellemeleri sadece avatar göstermek için kullanılır,
       // sonuç ekranını TETİKLEMEZ. Sadece kendi cevabımız sonuç tetikler.
       if (payload.new && payload.new.question_id && (Number(payload.new.question_id) === Number(currentQuestionId) || String(payload.new.question_id) === String(currentQuestionId))) {
@@ -1121,7 +1125,7 @@ function setupRealtimeChannel(config) {
       }
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` }, (payload) => {
-      resetPollingTimer();
+      markRealtimeActive();
       if (payload.new) {
         const room = payload.new;
         if (room.host_player_id) currentHostId = Number(room.host_player_id);
@@ -1136,14 +1140,37 @@ function setupRealtimeChannel(config) {
             playBtn.textContent = `${room.play_again_votes.length}/${activeCount} Onayladı`;
           }
         }
-        // Supabase realtime rooms güncellemesinden soru değiştirme YAPILMAZ.
-        // Soru değişimi sadece broadcast event'leri (new_question, game_started) ile olur.
+
+        // 🎯 HIZLI SORU GEÇİŞİ: DB güncellendi mi? REST broadcast bekleme, HEMEN göster!
+        // Bu, server'ın broadcast REST API çağrısından (150-300ms) önce tetiklenir.
+        if (room.state === 'playing' &&
+            Array.isArray(room.questions) &&
+            typeof room.current_question_index === 'number' &&
+            room.current_question_index >= 0 &&
+            room.current_question_index < room.questions.length) {
+          const q = room.questions[room.current_question_index];
+          if (q) {
+            showQuestion({
+              id: q.id,
+              text: q.text,
+              index: room.current_question_index,
+              total: room.questions.length
+            });
+          }
+        }
+
+        // Oyun bitti: hemen sonuçları çek ve göster
+        if (room.state === 'end' && !gameEndScreenFrozen) {
+          syncStateFromDatabase();
+        }
+
         if (room.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
           currentQuestionId = null;
+          currentQuestionIndex = -1;
           currentResultQuestionText = null;
           showScene('lobby');
           renderPlayers(currentPlayers);
-          if (room.settings?.questionCount) {
+          if (room.settings && room.settings.questionCount) {
             const qc = document.getElementById('question-count');
             if (qc) qc.value = room.settings.questionCount;
           }
@@ -1153,7 +1180,8 @@ function setupRealtimeChannel(config) {
     .subscribe((status, err) => {
       console.log(`[Supabase Realtime] Bağlantı durumu: ${status}`, err || '');
       if (status === 'SUBSCRIBED') {
-        resetPollingTimer();
+        markRealtimeActive();
+        startPolling(); // Tek seferlik kalıcı interval başlat
         if (isReconnecting) {
           console.log("[Supabase Realtime] Yeniden bağlandı, veritabanından güncel state çekiliyor...");
           syncStateFromDatabase();
