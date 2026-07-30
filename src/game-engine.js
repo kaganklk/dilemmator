@@ -194,12 +194,19 @@ export class GameEngine {
     };
   }
 
-  async nextQuestion(roomCode) {
-    const { data: room } = await supabase
-      .from('rooms')
-      .select('questions, current_question_index, settings')
-      .eq('code', roomCode)
-      .maybeSingle();
+  async nextQuestion(roomCode, preloadedRoom = null) {
+    let room;
+    if (preloadedRoom) {
+      // next-question.js zaten room'u getirdi, tekrar SELECT yapma
+      room = preloadedRoom;
+    } else {
+      const { data } = await supabase
+        .from('rooms')
+        .select('questions, current_question_index, settings')
+        .eq('code', roomCode)
+        .maybeSingle();
+      room = data;
+    }
 
     if (!room || !room.questions) return { error: 'Oda bulunamadı' };
 

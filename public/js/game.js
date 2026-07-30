@@ -395,8 +395,10 @@ function addLiveAnswer(data) {
 function triggerOptimisticResultsIfNeeded() {
   if (!currentQuestionId) return;
   const totalAns = currentQuestionAnswers.length;
-  // currentPlayers boş olsa bile 1 kabul et (boş liste erken çıkışa neden olmasın)
-  const totalPly = Math.max(1, currentPlayers.filter(p => p.connected !== false).length);
+  const connectedCount = currentPlayers.filter(p => p.connected !== false).length;
+  // totalPly: en az toplandığımız cevap sayısı kadar olsun
+  // (currentPlayers stale ise ve daha az oyuncu gösteriyorsa erken ateflemeyi önler)
+  const totalPly = Math.max(connectedCount, totalAns, 1);
 
   if (hasAnswered && (totalPly <= 1 || totalAns >= totalPly)) {
     let yapardimCount = 0;
@@ -966,7 +968,8 @@ async function syncStateFromDatabase() {
       isHost = Number(myPlayerId) === Number(currentHostId);
       localStorage.setItem('isHost', isHost ? 'true' : 'false');
     }
-    if (data.players) {
+    // currentPlayers'u sadece doluysa güncelle (boş dizi ile stale veriyi üzerine yazma)
+    if (data.players && data.players.length > 0) {
       currentPlayers = data.players;
       renderPlayers(currentPlayers);
       updateSidebar(currentPlayers);

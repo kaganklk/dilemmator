@@ -10,8 +10,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { roomCode, playerId } = req.body || {};
 
-  const room = await rooms.getRoom(roomCode);
-  const players = await rooms.getPlayers(roomCode);
+  const [room, players] = await Promise.all([
+    rooms.getRoom(roomCode),
+    rooms.getPlayers(roomCode)
+  ]);
   const activePlayers = (players || []).filter(p => p.connected !== false);
   const isHost = room && (Number(playerId) === Number(room.hostId) || (activePlayers.length <= 1 && activePlayers.some(p => Number(p.id) === Number(playerId))));
 
