@@ -20,8 +20,6 @@ export default async function handler(req, res) {
   }
 
   const question = await engine.startGame(roomCode, room.settings.questionCount);
-
-  // DB'ye yazma bitti → hemen yanıt dön, broadcast arka planda
-  res.status(200).json({ success: true, question });
-  broadcast(roomCode, 'game_started', { question }).catch(console.error);
+  await broadcast(roomCode, 'game_started', { question });
+  return res.status(200).json({ success: true, question });
 }

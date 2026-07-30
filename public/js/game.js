@@ -732,11 +732,16 @@ window.playAgain = async function() {
     });
     const data = await res.json();
     if (res.ok && data.reset) {
-      sendClientBroadcast('new_question', data.firstQ);
-      // Oyun yeniden başladığı için direkt ilk soruya geç
+      // Yeni oyun için tüm state ve dedup önbelleğini sıfırla
+      processedEventIds.clear();
+      hasAnswered = false;
+      currentQuestionAnswers = [];
       currentQuestionId = null;
       currentQuestionIndex = -1;
       currentResultQuestionText = null;
+      gameEndScreenFrozen = false;
+      lastGameEndData = null;
+      sendClientBroadcast('new_question', data.firstQ);
       showQuestion(data.firstQ);
     } else if (res.ok && data.votes !== undefined) {
       sendClientBroadcast('play_again_update', { votes: data.votes, total: data.total });
@@ -968,8 +973,14 @@ async function syncStateFromDatabase() {
     }
 
     const isInEndScene = document.getElementById('scene-end')?.classList.contains('active');
+    // Soru veya sonuç ekranındayken asla lobi'ye dönme (startGame DB gecikmesi race condition'ı)
+    const isInGameScene =
+      document.getElementById('scene-question')?.classList.contains('active') ||
+      document.getElementById('scene-results')?.classList.contains('active') ||
+      isInEndScene;
+
     if (data.state === 'lobby' && !document.getElementById('scene-lobby')?.classList.contains('active')) {
-      if (!isInEndScene) {
+      if (!isInGameScene) {
         currentQuestionId = null;
         currentQuestionIndex = -1;
         currentResultQuestionText = null;
@@ -1009,16 +1020,16 @@ async function syncStateFromDatabase() {
   }
 }
 
-// ── Polling & Realtime Yedekleme Mekanizması (500ms, Realtime'dan sonra 1.5s sustur) ──
+// ── Polling & Realtime Yedekleme Mekanizması (2s, Realtime'dan sonra 2s sustur) ──
 function resetPollingTimer() {
   lastRealtimeMsgTime = Date.now();
   if (pollingTimer) clearInterval(pollingTimer);
-  // 500ms'de bir polling yap ama Realtime'dan sonra 1500ms bekle (Realtime zaten hızlı getirdi)
+  // Realtime gelince polling 2 saniye dondurulur; Realtime gelmezse polling devreye girer
   pollingTimer = setInterval(async () => {
-    if (Date.now() - lastRealtimeMsgTime >= 1500) {
+    if (Date.now() - lastRealtimeMsgTime >= 2000) {
       await syncStateFromDatabase();
     }
-  }, 500);
+  }, 2000);
 }
 
 // ── Supabase Realtime Otomatik Yeniden Bağlanma & Loglama ──
@@ -1131,29 +1142,18 @@ function setupRealtimeChannel(config) {
     });
 }
 
-// ── Sıfır Gecikmeli Başlatma ──
+// ── Başlatma ──
 async function initGame() {
   document.getElementById('lobby-code').textContent = roomCode;
   const name = localStorage.getItem('playerName') || 'Anonim';
 
-  // Lobi ekranını HEMEN göster — Supabase yanıtı beklenmez
-  // (rejoin-room ve config paralel olarak arka planda çalışır)
-  showScene('lobby');
-  if (!isHost) {
-    document.getElementById('lobby-settings')?.querySelectorAll('.setting-btn').forEach(b => {
-      b.style.display = 'none';
-    });
-  }
-
-  // rejoin-room ve config aynı anda paralel gönderilir
-  const [rejoinPromise, configPromise] = [
-    fetch('/api/rejoin-room', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: roomCode, playerId: myPlayerId, name })
-    }),
-    fetch('/api/config')
-  ];
+  // rejoin-room ve config aynı anda paralel başlat (hız kazanımı)
+  const rejoinPromise = fetch('/api/rejoin-room', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: roomCode, playerId: myPlayerId, name })
+  });
+  const configPromise = fetch('/api/config');
 
   // Config gelir gelmez Realtime'ı kur (rejoin'i bekleme)
   configPromise
@@ -1161,7 +1161,7 @@ async function initGame() {
     .then(config => setupRealtimeChannel(config))
     .catch(err => console.error('Realtime abonelik hatası:', err));
 
-  // rejoin-room yanıtı gelince state'i güncelle (mevcut soru/sonuç ekranına geçiş)
+  // rejoin-room yanıtı gelince lobi/soru ekranına geç
   rejoinPromise
     .then(r => r.json())
     .then(data => {

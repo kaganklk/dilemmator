@@ -21,19 +21,15 @@ export default async function handler(req, res) {
 
   const nextRes = await engine.nextQuestion(roomCode);
   if (nextRes.error) {
-    // Yarış koşulu (race condition) gibi durumlarda, error dönüyoruz.
     return res.status(200).json({ success: false, error: nextRes.error });
   }
 
-  // DB'ye yazma tamamlandı → hemen yanıt dön (host anında yeni soruyu görür)
-  // Broadcast arka planda gönderilir (diğer oyuncular Realtime ile yakalar)
-  res.status(200).json({ success: true, ...nextRes });
-
-  // Yanıt gönderildikten SONRA broadcast et (await bloklarken response gecikmesin)
+  // Broadcast'i BEKLE, sonra yanıt dön (serverless'da yanıt sonrası fonksiyon ölür)
   if (nextRes.gameOver) {
-    broadcast(roomCode, 'game_ended', nextRes.results).catch(console.error);
+    await broadcast(roomCode, 'game_ended', nextRes.results);
   } else {
-    broadcast(roomCode, 'new_question', nextRes.question).catch(console.error);
+    await broadcast(roomCode, 'new_question', nextRes.question);
   }
 
+  return res.status(200).json({ success: true, ...nextRes });
 }
