@@ -619,8 +619,9 @@ async function showGameEnd(data) {
 
     playersList.forEach(p => {
       const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
-      const totalAns = Math.max(1, st.yapardim + st.yapmazdim, totalQCount);
-      p.canililkYuzdesi = Math.round((st.yapardim / totalAns) * 100);
+      const totalAnswered = Math.max(1, st.yapardim + st.yapmazdim);
+      p.canililkYuzdesi = Math.round((st.yapardim / totalAnswered) * 100);
+      p.katilimYuzdesi = Math.round((totalAnswered / Math.max(1, totalQCount)) * 100);
     });
 
     playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
@@ -638,6 +639,7 @@ async function showGameEnd(data) {
       return {
         name: nameText,
         score: maxScore,
+        total: totalQCount,
         color: winners[0]?.color || '#FF2D55',
       };
     };
@@ -674,12 +676,15 @@ function renderGameEndUI(data) {
       .filter(a => data.awards && data.awards[a.key])
       .map(a => {
         const award = data.awards[a.key];
+        const scoreText = award.total > 0
+          ? `${Math.round((award.score / award.total) * 100)}% (${award.score}/${award.total})`
+          : `${award.score} soru`;
         return `
           <div class="award-card">
             <div class="award-emoji">${a.emoji}</div>
             <div class="award-title">${a.title}</div>
             <div class="award-name" style="color:${award.color || '#FF2D55'}">${award.name}</div>
-            <div class="award-score">${award.score} soru</div>
+            <div class="award-score">${scoreText}</div>
           </div>
         `;
       }).join('');
