@@ -179,8 +179,10 @@ export class GameEngine {
     }
 
     const total = yapardim + yapmazdim;
-    const yapardimPercent = total > 0 ? Math.round((yapardim / total) * 100) : 50;
-    const yapmazdimPercent = total > 0 ? (100 - yapardimPercent) : 50;
+    // Cevap yoksa null dön (50/50 sahte veri yayınlama)
+    if (total === 0) return null;
+    const yapardimPercent = Math.round((yapardim / total) * 100);
+    const yapmazdimPercent = 100 - yapardimPercent;
 
     return {
       questionId: q.id,

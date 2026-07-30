@@ -26,7 +26,8 @@ export default async function handler(req, res) {
   // Herkes cevapladıysa sonuçları hesapla, hem yayınla hem doğrudan JSON içinde geri döndür!
   if (result.allAnswered) {
     qResults = await engine.getQuestionResults(roomCode);
-    if (qResults) {
+    // Cevap yoksa (race condition ile silinmiş) yayınlama — 50/50 sahte veri engeli
+    if (qResults && qResults.playerAnswers && qResults.playerAnswers.length > 0) {
       await broadcast(roomCode, 'question_results', qResults);
     }
   }

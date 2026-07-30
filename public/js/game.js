@@ -393,9 +393,10 @@ function addLiveAnswer(data) {
 }
 
 function triggerOptimisticResultsIfNeeded() {
-  if (!currentQuestionId || currentPlayers.length === 0) return;
+  if (!currentQuestionId) return;
   const totalAns = currentQuestionAnswers.length;
-  const totalPly = currentPlayers.filter(p => p.connected !== false).length || 1;
+  // currentPlayers boş olsa bile 1 kabul et (boş liste erken çıkışa neden olmasın)
+  const totalPly = Math.max(1, currentPlayers.filter(p => p.connected !== false).length);
 
   if (hasAnswered && (totalPly <= 1 || totalAns >= totalPly)) {
     let yapardimCount = 0;
@@ -444,6 +445,11 @@ function triggerOptimisticResultsIfNeeded() {
 // ── Results rendering ──
 function showResults(data) {
   if (!data) return;
+  // Hiç cevap yoksa sonucu asla gösterme (race condition 50/50 artifact)
+  if (!data.playerAnswers || data.playerAnswers.length === 0) {
+    console.log('[showResults] Boş playerAnswers, göstermek reddedildi.');
+    return;
+  }
   // Dedup: soru ID'sine göre kontrol et (metin farklılıklarından etkilenmesin)
   const resQuestionId = data.questionId || currentQuestionId;
   const resFlag = `state_res_${resQuestionId}`;
@@ -885,7 +891,12 @@ function handleServerMessage(msg) {
       break;
 
     case 'question_results':
-      // Eski sorudan kalan gecikmeli broadcast'i yoksay
+      // Boş cevap listesi = race condition artifact, gösterme
+      if (!msg.playerAnswers || msg.playerAnswers.length === 0) {
+        console.log('[question_results] Boş playerAnswers, yoksayıldı.');
+        break;
+      }
+      // Eski sorudan kalan gecikmış broadcast'ı yoksay
       if (msg.questionId && currentQuestionId && String(msg.questionId) !== String(currentQuestionId)) {
         console.log(`[Dedup] Eski sorunun sonucu yoksayıldı: broadcast Q${msg.questionId}, mevcut Q${currentQuestionId}`);
         break;
