@@ -387,9 +387,9 @@ function addLiveAnswer(data) {
     if (countEl) countEl.textContent = `${totalAns} / ${totalPly} kişi cevapladı`;
   }
 
-  // NOT: Sonuç ekranı burada TETİKLENMEZ.
-  // Sonuç sadece kullanıcı kendi cevabını verdiğinde (submitAnswer → triggerOptimisticResultsIfNeeded)
-  // veya sunucu broadcast'i (question_results) ile tetiklenir.
+  // Tüm oyuncular cevapladıysa ve bu oyuncu da cevap verdiyse optimistic sonuç göster
+  // (addLiveAnswer'dan da tetiklenir — "ikinci oyuncunun cevabı gelince birinci oyuncu da görür")
+  triggerOptimisticResultsIfNeeded();
 }
 
 function triggerOptimisticResultsIfNeeded() {
