@@ -222,8 +222,9 @@ export class GameEngine {
         settings.usedQuestions = usedIds;
       }
 
-      // Yeni soruya geçmeden ÖNCE tüm eski cevapları sil (sahte sonuç ekranı engeli)
-      await supabase.from('answers').delete().eq('room_code', roomCode);
+      // NOT: Cevaplar ARASINDA silinmiyor — getGameEndResults tüm soruların cevaplarına ihtiyaç duyar.
+      // getQuestionResults ve allAnswered zaten question_id'ye göre filtreler, eski cevaplar onları etkilemez.
+      // Cevaplar sadece yeni oyun başlarken (startGame) silinir.
 
       const { data: updateResult, error: updateError } = await supabase.from('rooms').update({ 
         current_question_index: nextIndex, 
@@ -287,8 +288,15 @@ export class GameEngine {
       stats[p.id] = { yapardimCount: 0, cani: 0, paragoz: 0, bencil: 0 };
     }
 
-    if (allAnswers) {
+    if (allAnswers && allAnswers.length > 0) {
+      // Dedup: aynı oyuncu+soru kombinasyonu birden fazla kez sayılmasın
+      const uniqueAnswersMap = new Map();
       for (const ans of allAnswers) {
+        uniqueAnswersMap.set(`${ans.player_id}_${ans.question_id}`, ans);
+      }
+      const deduplicatedAnswers = Array.from(uniqueAnswersMap.values());
+
+      for (const ans of deduplicatedAnswers) {
         const pid = Number(ans.player_id);
         if (!stats[pid]) stats[pid] = { yapardimCount: 0, cani: 0, paragoz: 0, bencil: 0 };
         if (ans.answer === 'yapardim') {
