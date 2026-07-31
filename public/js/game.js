@@ -1244,13 +1244,13 @@ window.vote = async function(type, el) {
 
       const { error: insErr } = await supabaseClient
         .from('question_ratings')
-        .insert({
+        .upsert({
           question_id: String(currentQuestionId),
           player_id: String(myPlayerId),
           room_id: roomCode,
           type
-        });
-      if (insErr) console.error('[vote] insert error:', insErr.message, insErr);
+        }, { onConflict: 'question_id,player_id,room_id' });
+      if (insErr) console.error('[vote] upsert error:', insErr.message, insErr);
     }
   }
 };
