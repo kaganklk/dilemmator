@@ -1232,13 +1232,20 @@ window.vote = async function(type, el) {
     el.style.filter = type === 'like' ? LIKE_FILTER : DISLIKE_FILTER;
     el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
     burst(type === 'like' ? likeWrap : dislikeWrap);
+    console.log('[vote] çağrıldı:', { type, currentQuestionId, myPlayerId, roomCode, supabaseClient: !!supabaseClient });
     if (supabaseClient && currentQuestionId) {
       supabaseClient.from('question_ratings').upsert({
         question_id: String(currentQuestionId),
         player_id: String(myPlayerId),
         room_id: roomCode,
         type
-      }, { onConflict: 'question_id,player_id,room_id' });
+      }, { onConflict: 'question_id,player_id,room_id' })
+        .then(({ data, error }) => {
+          if (error) console.error('[vote] upsert HATA:', error);
+          else console.log('[vote] upsert OK:', data);
+        });
+    } else {
+      console.warn('[vote] ATLAIDI — supabaseClient:', !!supabaseClient, 'currentQuestionId:', currentQuestionId);
     }
   }
 };
