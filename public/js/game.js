@@ -1211,12 +1211,11 @@ window.vote = async function(type, el) {
     el.dataset.active = 'false';
     el.style.filter = 'grayscale(1) brightness(0.35)';
     el.animate([{transform:'scale(1)'},{transform:'scale(0.7)'},{transform:'scale(1)'}], {duration:200});
-    if (currentQuestionId) {
-      fetch('/api/rate-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: currentQuestionId, playerId: myPlayerId, roomCode, type: null })
-      }).catch(() => {});
+    if (supabaseClient && currentQuestionId) {
+      supabaseClient.from('question_ratings').delete()
+        .eq('question_id', String(currentQuestionId))
+        .eq('player_id', String(myPlayerId))
+        .eq('room_id', roomCode);
     }
   } else {
     // Önce her ikisini de sıfırla
@@ -1229,14 +1228,16 @@ window.vote = async function(type, el) {
     el.style.filter = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
     el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
     burst(type === 'like' ? likeWrap : dislikeWrap);
-    if (currentQuestionId) {
-      fetch('/api/rate-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId: currentQuestionId, playerId: myPlayerId, roomCode, type })
-      }).catch(() => {});
+    if (supabaseClient && currentQuestionId) {
+      supabaseClient.from('question_ratings').upsert({
+        question_id: String(currentQuestionId),
+        player_id: String(myPlayerId),
+        room_id: roomCode,
+        type
+      }, { onConflict: 'question_id,player_id,room_id' });
     }
   }
 };
+
 
 
