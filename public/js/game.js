@@ -292,7 +292,14 @@ function showQuestion(question) {
   document.getElementById('avatars-yapardim').innerHTML = '';
   document.getElementById('avatars-yapmazdim').innerHTML = '';
   document.getElementById('answer-count').textContent = '';
+
+  // Rating butonlarını sıfırla — yeni soru için önceki oyu temizle
+  const likeBtn = document.getElementById('like-btn');
+  const dislikeBtn = document.getElementById('dislike-btn');
+  if (likeBtn) { likeBtn.dataset.active = 'false'; likeBtn.style.filter = 'grayscale(1) brightness(0.35)'; }
+  if (dislikeBtn) { dislikeBtn.dataset.active = 'false'; dislikeBtn.style.filter = 'grayscale(1) brightness(0.35)'; }
 }
+
 
 // ── Submit answer (Anında Görsel Tepki ve Sonuç Yönlendirmesi) ──
 window.submitAnswer = async function(answer) {
@@ -1164,3 +1171,86 @@ function notifyPlayerLeft() {
 
 window.addEventListener('beforeunload', notifyPlayerLeft);
 window.addEventListener('pagehide', notifyPlayerLeft);
+
+// ── Soru Beğeni Sistemi ──
+function burst(wrap) {
+  const count = 8;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.style.cssText = 'position:absolute; border-radius:50%; background:#CC1F3F; pointer-events:none; opacity:0; z-index:1;';
+    const size = 4 + Math.random() * 4;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = '50%';
+    p.style.top = '50%';
+    p.style.marginLeft = (-size/2) + 'px';
+    p.style.marginTop = (-size/2) + 'px';
+    wrap.appendChild(p);
+    const angle = (360 / count) * i;
+    const distance = 28 + Math.random() * 12;
+    const rad = (angle * Math.PI) / 180;
+    const tx = Math.cos(rad) * distance;
+    const ty = Math.sin(rad) * distance;
+    p.animate([
+      { opacity: 1, transform: 'translate(0,0) scale(1)' },
+      { opacity: 0, transform: `translate(${tx}px,${ty}px) scale(0)` }
+    ], { duration: 500, easing: 'cubic-bezier(0,0,0.2,1)', fill: 'forwards' })
+    .onfinish = () => p.remove();
+  }
+}
+
+window.vote = async function(type, el) {
+  const like = document.getElementById('like-btn');
+  const dislike = document.getElementById('dislike-btn');
+  const likeWrap = document.getElementById('like-wrap');
+  const dislikeWrap = document.getElementById('dislike-wrap');
+  const isActive = el.dataset.active === 'true';
+
+  if (isActive) {
+    // Aktif oyu kaldır
+    el.dataset.active = 'false';
+    el.style.filter = 'grayscale(1) brightness(0.35)';
+    el.animate([{transform:'scale(1)'},{transform:'scale(0.7)'},{transform:'scale(1)'}], {duration:200});
+    // Supabase'den kaydı sil
+    if (supabaseClient && currentQuestionId) {
+      try {
+        await supabaseClient
+          .from('question_ratings')
+          .delete()
+          .eq('question_id', String(currentQuestionId))
+          .eq('player_id', String(myPlayerId))
+          .eq('room_id', roomCode);
+      } catch (e) { /* sessizce geç */ }
+    }
+  } else {
+    // Önce her ikisini de sıfırla
+    like.dataset.active = 'false';
+    dislike.dataset.active = 'false';
+    like.style.filter = 'grayscale(1) brightness(0.35)';
+    dislike.style.filter = 'grayscale(1) brightness(0.35)';
+    // Seçileni aktif yap
+    el.dataset.active = 'true';
+    el.style.filter = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
+    el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
+    burst(type === 'like' ? likeWrap : dislikeWrap);
+    // Supabase'e kaydet: önce varsa eskiyi sil, sonra yeni kaydı ekle
+    if (supabaseClient && currentQuestionId) {
+      try {
+        await supabaseClient
+          .from('question_ratings')
+          .delete()
+          .eq('question_id', String(currentQuestionId))
+          .eq('player_id', String(myPlayerId))
+          .eq('room_id', roomCode);
+        await supabaseClient
+          .from('question_ratings')
+          .insert({
+            question_id: String(currentQuestionId),
+            player_id: String(myPlayerId),
+            room_id: roomCode,
+            type
+          });
+      } catch (e) { /* sessizce geç */ }
+    }
+  }
+};
