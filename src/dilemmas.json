@@ -168,5 +168,45 @@
     "id": 34,
     "text": "Zamanda yolculuk yaparak tarihteki <strong>çok büyük bir faciayı engelleyeceksin</strong> ancak asla kendi zamanına dönemeyecek, geri kalan ömrünü <u>geçmiş yüzyılda yaşamak</u> zorunda kalacaksın. Yapar mıydın?",
     "tags": ["bencil"]
+  },
+  {
+    "id": 35,
+    "text": "<strong>Uçma yeteneği</strong> kazanacaksın ancak seni havada uçarken gören biri olduğu anda <u>anında yere çakılacaksın</u>. Üstelik bir daha asla uçamayacaksın. Kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 36,
+    "text": "Paralel bir evrende <strong>çok daha iyi bir hayat yaşayan sen</strong> var — sevdiklerin yanında, maddi ve manevi olarak tam istediğin konumda. O evrene geçip <u>o halinle yer değiştirebilirsin</u>, ama şu an bulunduğun evrende aniden yok olacaksın. Geçer miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 37,
+    "text": "İstediğin herhangi bir <strong>film evrenine gideceksin</strong> ancak geri dönebilmek için o evrenden <u>3 kişiyi yaşadıkları dünyanın gerçek olmadığına ikna etmen</u> gerekecek — bunu kanıtlayacak hiçbir şey gösteremezsin. Yapar mıydın?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 38,
+    "text": "<strong>Haftada yalnızca bir öğün yiyerek</strong> tüm haftalık besin ihtiyacını karşılayabileceksin ancak yediğin hiçbir şeyden <u>en küçük bir tat bile alamayacaksın</u>. Kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 39,
+    "text": "Gerçek bir <strong>zaman yolcusu</strong> olacak ve istediğin her çağa yolculuk yapabileceksin; ancak her gidişinde <u>en az bir kişiyi zaman yolcusu olduğuna inandırman</u> gerekecek — makineyi gösteremezsin, sadece sözlerinle. Kabul eder miydin?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 40,
+    "text": "<strong>10 yıl önceki kendinle tam 1 saat sohbet edebileceksin</strong>; ama geri döndüğünde bugün olan her şey değişmiş olabilir — iyi ya da kötü, <u>tamamen öngörülemez bir dönüşüm</u> seni bekliyor. Yapar mıydın?",
+    "tags": ["bencil"]
+  },
+  {
+    "id": 41,
+    "text": "Şu an sahip olduğun <strong>her şeyin 5 katına</strong> anında kavuşacaksın ancak bugün sahip olmadığın hiçbir şeye <u>sonsuza kadar sahip olamayacaksın</u>. Kabul eder miydin?",
+    "tags": ["paragoz", "bencil"]
+  },
+  {
+    "id": 42,
+    "text": "Önündeki butona her bastığında tam <strong>200 dolar</strong> kazanacaksın ancak her basışında son <u>1 haftanın tüm anıları hafızandan silinecek</u>. Ne kadar basardın?",
+    "tags": ["paragoz", "bencil"]
   }
 ]
