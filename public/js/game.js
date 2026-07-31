@@ -1206,10 +1206,14 @@ window.vote = async function(type, el) {
   const dislikeWrap = document.getElementById('dislike-wrap');
   const isActive = el.dataset.active === 'true';
 
+  const LIKE_FILTER   = 'grayscale(0) brightness(1.1) saturate(1.5)';
+  const DISLIKE_FILTER = 'grayscale(0) brightness(1.0) saturate(1.5) hue-rotate(300deg)';
+  const OFF_FILTER    = 'grayscale(1) brightness(0.35)';
+
   if (isActive) {
     // Aktif oyu geri çek
     el.dataset.active = 'false';
-    el.style.filter = 'grayscale(1) brightness(0.35)';
+    el.style.filter = OFF_FILTER;
     el.animate([{transform:'scale(1)'},{transform:'scale(0.7)'},{transform:'scale(1)'}], {duration:200});
     if (supabaseClient && currentQuestionId) {
       supabaseClient.from('question_ratings').delete()
@@ -1221,11 +1225,11 @@ window.vote = async function(type, el) {
     // Önce her ikisini de sıfırla
     like.dataset.active = 'false';
     dislike.dataset.active = 'false';
-    like.style.filter = 'grayscale(1) brightness(0.35)';
-    dislike.style.filter = 'grayscale(1) brightness(0.35)';
+    like.style.filter = OFF_FILTER;
+    dislike.style.filter = OFF_FILTER;
     // Seçileni aktif yap
     el.dataset.active = 'true';
-    el.style.filter = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
+    el.style.filter = type === 'like' ? LIKE_FILTER : DISLIKE_FILTER;
     el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
     burst(type === 'like' ? likeWrap : dislikeWrap);
     if (supabaseClient && currentQuestionId) {
@@ -1238,6 +1242,7 @@ window.vote = async function(type, el) {
     }
   }
 };
+
 
 
 
