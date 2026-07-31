@@ -1202,50 +1202,36 @@ function burst(wrap) {
 }
 
 window.vote = function(type, el) {
-  console.log('[vote] başladı', type, '| supabase:', !!supabaseClient, '| qId:', currentQuestionId);
   const like = document.getElementById('like-btn');
   const dislike = document.getElementById('dislike-btn');
   const likeWrap = document.getElementById('like-wrap');
   const dislikeWrap = document.getElementById('dislike-wrap');
   const thanks = document.getElementById('vote-thanks');
 
-  const LIKE_FILTER    = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
-  const DISLIKE_FILTER = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
-  const OFF_FILTER     = 'grayscale(1) brightness(0.35)';
+  const ACTIVE_FILTER = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
+  const OFF_FILTER    = 'grayscale(1) brightness(0.35)';
 
-  // Her ikisini sıfırla, seçileni renklendir
   like.dataset.active = 'false';
   dislike.dataset.active = 'false';
   like.style.filter = OFF_FILTER;
   dislike.style.filter = OFF_FILTER;
 
   el.dataset.active = 'true';
-  el.style.filter = type === 'like' ? LIKE_FILTER : DISLIKE_FILTER;
+  el.style.filter = ACTIVE_FILTER;
   el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
   burst(type === 'like' ? likeWrap : dislikeWrap);
 
-  // Butonları kilitle (geri çekme yok)
   like.style.pointerEvents = 'none';
   dislike.style.pointerEvents = 'none';
-
-  // Teşekkür mesajı
   if (thanks) { thanks.style.opacity = '1'; }
 
-  // DB'ye kaydet
   if (supabaseClient && currentQuestionId) {
-    console.log('[vote] upsert gönderiliyor...');
     supabaseClient.from('question_ratings').upsert({
       question_id: String(currentQuestionId),
       player_id: String(myPlayerId),
       room_id: roomCode,
       type
-    }, { onConflict: 'question_id,player_id,room_id' })
-      .then(({ data, error }) => {
-        if (error) console.error('[vote] DB hata:', error);
-        else console.log('[vote] DB OK ✓');
-      });
-  } else {
-    console.warn('[vote] ATLAIDI — supabaseClient:', !!supabaseClient, 'qId:', currentQuestionId);
+    }, { onConflict: 'question_id,player_id,room_id' });
   }
 };
 
