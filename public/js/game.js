@@ -296,8 +296,10 @@ function showQuestion(question) {
   // Rating butonlarını sıfırla — yeni soru için önceki oyu temizle
   const likeBtn = document.getElementById('like-btn');
   const dislikeBtn = document.getElementById('dislike-btn');
-  if (likeBtn) { likeBtn.dataset.active = 'false'; likeBtn.style.filter = 'grayscale(1) brightness(0.35)'; }
-  if (dislikeBtn) { dislikeBtn.dataset.active = 'false'; dislikeBtn.style.filter = 'grayscale(1) brightness(0.35)'; }
+  const voteThanks = document.getElementById('vote-thanks');
+  if (likeBtn) { likeBtn.dataset.active = 'false'; likeBtn.style.filter = 'grayscale(1) brightness(0.35)'; likeBtn.style.pointerEvents = 'auto'; }
+  if (dislikeBtn) { dislikeBtn.dataset.active = 'false'; dislikeBtn.style.filter = 'grayscale(1) brightness(0.35)'; dislikeBtn.style.pointerEvents = 'auto'; }
+  if (voteThanks) { voteThanks.style.opacity = '0'; }
 }
 
 
@@ -1199,54 +1201,43 @@ function burst(wrap) {
   }
 }
 
-window.vote = async function(type, el) {
+window.vote = function(type, el) {
   const like = document.getElementById('like-btn');
   const dislike = document.getElementById('dislike-btn');
   const likeWrap = document.getElementById('like-wrap');
   const dislikeWrap = document.getElementById('dislike-wrap');
-  const isActive = el.dataset.active === 'true';
+  const thanks = document.getElementById('vote-thanks');
 
-  const LIKE_FILTER   = 'grayscale(0) brightness(1.1) saturate(1.5)';
+  const LIKE_FILTER    = 'grayscale(0) brightness(1.1) saturate(1.5)';
   const DISLIKE_FILTER = 'grayscale(0) brightness(1.0) saturate(1.5) hue-rotate(300deg)';
-  const OFF_FILTER    = 'grayscale(1) brightness(0.35)';
+  const OFF_FILTER     = 'grayscale(1) brightness(0.35)';
 
-  if (isActive) {
-    // Aktif oyu geri çek
-    el.dataset.active = 'false';
-    el.style.filter = OFF_FILTER;
-    el.animate([{transform:'scale(1)'},{transform:'scale(0.7)'},{transform:'scale(1)'}], {duration:200});
-    if (supabaseClient && currentQuestionId) {
-      supabaseClient.from('question_ratings').delete()
-        .eq('question_id', String(currentQuestionId))
-        .eq('player_id', String(myPlayerId))
-        .eq('room_id', roomCode);
-    }
-  } else {
-    // Önce her ikisini de sıfırla
-    like.dataset.active = 'false';
-    dislike.dataset.active = 'false';
-    like.style.filter = OFF_FILTER;
-    dislike.style.filter = OFF_FILTER;
-    // Seçileni aktif yap
-    el.dataset.active = 'true';
-    el.style.filter = type === 'like' ? LIKE_FILTER : DISLIKE_FILTER;
-    el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
-    burst(type === 'like' ? likeWrap : dislikeWrap);
-    console.log('[vote] çağrıldı:', { type, currentQuestionId, myPlayerId, roomCode, supabaseClient: !!supabaseClient });
-    if (supabaseClient && currentQuestionId) {
-      supabaseClient.from('question_ratings').upsert({
-        question_id: String(currentQuestionId),
-        player_id: String(myPlayerId),
-        room_id: roomCode,
-        type
-      }, { onConflict: 'question_id,player_id,room_id' })
-        .then(({ data, error }) => {
-          if (error) console.error('[vote] upsert HATA:', error);
-          else console.log('[vote] upsert OK:', data);
-        });
-    } else {
-      console.warn('[vote] ATLAIDI — supabaseClient:', !!supabaseClient, 'currentQuestionId:', currentQuestionId);
-    }
+  // Her ikisini sıfırla, seçileni renklendir
+  like.dataset.active = 'false';
+  dislike.dataset.active = 'false';
+  like.style.filter = OFF_FILTER;
+  dislike.style.filter = OFF_FILTER;
+
+  el.dataset.active = 'true';
+  el.style.filter = type === 'like' ? LIKE_FILTER : DISLIKE_FILTER;
+  el.animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}], {duration:200});
+  burst(type === 'like' ? likeWrap : dislikeWrap);
+
+  // Butonları kilitle (geri çekme yok)
+  like.style.pointerEvents = 'none';
+  dislike.style.pointerEvents = 'none';
+
+  // Teşekkür mesajı
+  if (thanks) { thanks.style.opacity = '1'; }
+
+  // DB'ye kaydet
+  if (supabaseClient && currentQuestionId) {
+    supabaseClient.from('question_ratings').upsert({
+      question_id: String(currentQuestionId),
+      player_id: String(myPlayerId),
+      room_id: roomCode,
+      type
+    }, { onConflict: 'question_id,player_id,room_id' });
   }
 };
 
