@@ -25,9 +25,16 @@ export default async function handler(req, res) {
     currentQuestion = await engine.getCurrentQuestion(cleanCode);
   }
 
+  let gameEndResults = null;
+  if (result.gameState === 'end') {
+    const room = await rooms.getRoom(cleanCode);
+    gameEndResults = await engine.getGameEndResults(cleanCode, room?.questions || []);
+  }
+
   return res.status(200).json({
     type: 'room_joined',
     ...result,
-    currentQuestion
+    currentQuestion,
+    gameEndResults
   });
 }

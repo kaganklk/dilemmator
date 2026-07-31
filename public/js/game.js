@@ -762,6 +762,11 @@ function handleServerMessage(msg) {
         }
       } else if (msg.gameState === 'playing' && msg.currentQuestion) {
         showQuestion(msg.currentQuestion);
+      } else if (msg.gameState === 'end' && msg.gameEndResults) {
+        // Sayfa yenilendiğinde oda 'end' state'indeyse oyun bitti ekranını göster
+        showGameEnd(msg.gameEndResults);
+      } else if (msg.gameState === 'results' && msg.currentQuestion) {
+        showQuestion(msg.currentQuestion);
       }
       break;
 
