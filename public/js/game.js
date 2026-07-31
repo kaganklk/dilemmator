@@ -1213,14 +1213,13 @@ window.vote = async function(type, el) {
     el.animate([{transform:'scale(1)'},{transform:'scale(0.7)'},{transform:'scale(1)'}], {duration:200});
     // Supabase'den kaydı sil
     if (supabaseClient && currentQuestionId) {
-      try {
-        await supabaseClient
-          .from('question_ratings')
-          .delete()
-          .eq('question_id', String(currentQuestionId))
-          .eq('player_id', String(myPlayerId))
-          .eq('room_id', roomCode);
-      } catch (e) { /* sessizce geç */ }
+      const { error } = await supabaseClient
+        .from('question_ratings')
+        .delete()
+        .eq('question_id', String(currentQuestionId))
+        .eq('player_id', String(myPlayerId))
+        .eq('room_id', roomCode);
+      if (error) console.error('[vote] delete error:', error.message, error);
     }
   } else {
     // Önce her ikisini de sıfırla
@@ -1235,22 +1234,24 @@ window.vote = async function(type, el) {
     burst(type === 'like' ? likeWrap : dislikeWrap);
     // Supabase'e kaydet: önce varsa eskiyi sil, sonra yeni kaydı ekle
     if (supabaseClient && currentQuestionId) {
-      try {
-        await supabaseClient
-          .from('question_ratings')
-          .delete()
-          .eq('question_id', String(currentQuestionId))
-          .eq('player_id', String(myPlayerId))
-          .eq('room_id', roomCode);
-        await supabaseClient
-          .from('question_ratings')
-          .insert({
-            question_id: String(currentQuestionId),
-            player_id: String(myPlayerId),
-            room_id: roomCode,
-            type
-          });
-      } catch (e) { /* sessizce geç */ }
+      const { error: delErr } = await supabaseClient
+        .from('question_ratings')
+        .delete()
+        .eq('question_id', String(currentQuestionId))
+        .eq('player_id', String(myPlayerId))
+        .eq('room_id', roomCode);
+      if (delErr) console.error('[vote] delete error:', delErr.message, delErr);
+
+      const { error: insErr } = await supabaseClient
+        .from('question_ratings')
+        .insert({
+          question_id: String(currentQuestionId),
+          player_id: String(myPlayerId),
+          room_id: roomCode,
+          type
+        });
+      if (insErr) console.error('[vote] insert error:', insErr.message, insErr);
     }
   }
 };
+
