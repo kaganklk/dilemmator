@@ -17,6 +17,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: result.error });
   }
 
+  // Tüm oyuncular ayrıldı — oda zaten silindi, başka bir şey yapmaya gerek yok
+  if (result && result.allLeft) {
+    return res.status(200).json({ success: true, allLeft: true });
+  }
+
   // Diğer oyunculara anında çıkışı bildir
   if (result && result.players) {
     await broadcast(roomCode, 'player_left', {
@@ -36,4 +41,5 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ success: true, ...result });
+
 }

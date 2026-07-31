@@ -1,12 +1,32 @@
 // landing.js — Ana sayfa mantığı (Supabase & Vercel API uyumlu)
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const roomCode = localStorage.getItem('roomCode');
   const playerId = localStorage.getItem('playerId');
   if (roomCode && playerId) {
-    window.location.href = `/game.html?room=${roomCode}`;
+    try {
+      const res = await fetch('/api/get-room-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: roomCode, playerId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Oda aktifse (lobi, oyun, sonuç) geri dön
+        if (data.success && data.state && data.state !== 'end') {
+          window.location.href = `/game.html?room=${roomCode}`;
+          return;
+        }
+      }
+    } catch (e) { /* Bağlantı hatası — ana sayfada kal */ }
+    // Oda yok, silinmiş veya 'end' state'inde — eski oturumu temizle
+    localStorage.removeItem('roomCode');
+    localStorage.removeItem('playerId');
+    localStorage.removeItem('isHost');
+    localStorage.removeItem('playerName');
   }
 });
+
 
 const previewDilemmas = [
   "Önünde gizemli bir buton var. Her bastığında bugüne kadar iletişime geçtiğin <u>herhangi biri ölecek</u> — sokakta selam verdiğin biri de olabilir, annen de. Ancak karşılığında tam <strong>1 milyar dolar</strong> alacaksın. Butona basar mıydın?",

@@ -259,25 +259,40 @@ export class RoomManager {
 
     if (!room) return { error: 'Oda bulunamadı' };
 
+    // Tüm oyuncular disconnect olduysa odayı tamamen sil
+    const activePlayers = (players || []).filter(p => p.connected !== false);
+    if (activePlayers.length === 0) {
+      await this.deleteRoom(code);
+      return {
+        room,
+        players: [],
+        activePlayersCount: 0,
+        validVotesCount: 0,
+        shouldResetToLobby: false,
+        lobbyData: null,
+        allLeft: true,
+      };
+    }
+
     // Eğer oda sahibi çıkmışsa ve odada halen biri varsa host haklarını devret!
-    if (Number(room.hostId) === Number(playerId) && (players || []).length > 0) {
-      const newHostId = Number(players[0].id);
+    if (Number(room.hostId) === Number(playerId) && activePlayers.length > 0) {
+      const newHostId = Number(activePlayers[0].id);
       room.hostId = newHostId;
       await supabase.from('rooms').update({ host_player_id: newHostId.toString() }).eq('code', code);
     }
 
     const playersInfo = this.getPlayersInfo(players || [], room.hostId);
-    const activeCount = (players || []).length || 1;
+    const activeCount = activePlayers.length;
     let shouldResetToLobby = false;
     let lobbyData = null;
     let validVotesCount = 0;
 
     if (room.state === 'end' && Array.isArray(room.playAgainVotes)) {
-      const activeIds = (players || []).map(p => p.id.toString());
+      const activeIds = activePlayers.map(p => p.id.toString());
       const validVotes = room.playAgainVotes.filter(v => activeIds.includes(v.toString()));
       validVotesCount = validVotes.length;
 
-      if ((players || []).length > 0 && validVotesCount >= activeCount) {
+      if (activeCount > 0 && validVotesCount >= activeCount) {
         // ÖNCE tüm cevapları sil, SONRA odayı güncelle (yarış koşulu engeli)
         await supabase.from('answers').delete().eq('room_code', code);
         await supabase.from('rooms').update({
@@ -299,7 +314,17 @@ export class RoomManager {
       activePlayersCount: activeCount,
       validVotesCount,
       shouldResetToLobby,
-      lobbyData
+      lobbyData,
+      allLeft: false,
     };
+  }
+
+  async deleteRoom(code) {
+    if (!code) return;
+    // Sırayla sil: önce bağımlı tablolar (answers, players), sonra rooms
+    await supabase.from('answers').delete().eq('room_code', code);
+    await supabase.from('players').delete().eq('room_code', code);
+    await supabase.from('rooms').delete().eq('code', code);
+    console.log(`[RoomManager] Oda silindi: ${code}`);
   }
 }

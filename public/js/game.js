@@ -599,7 +599,14 @@ async function showGameEnd(data) {
 
     playersList.forEach(p => { playerStats[p.id] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 }; });
 
-    allAnswers.forEach(ans => {
+    // Server tarafıyla aynı: aynı (oyuncu + soru) kombinasyonu bir kez sayılsın
+    const uniqueAnswersMap = new Map();
+    for (const ans of allAnswers) {
+      uniqueAnswersMap.set(`${ans.player_id}_${ans.question_id}`, ans);
+    }
+    const deduplicatedAnswers = Array.from(uniqueAnswersMap.values());
+
+    deduplicatedAnswers.forEach(ans => {
       const pid = Number(ans.player_id);
       if (!playerStats[pid]) {
         playerStats[pid] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
@@ -627,10 +634,12 @@ async function showGameEnd(data) {
 
     playersList.forEach(p => {
       const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
-      const totalAnswered = Math.max(1, st.yapardim + st.yapmazdim);
-      p.canililkYuzdesi = Math.round((st.yapardim / totalAnswered) * 100);
+      // Server tarafıyla aynı: toplam soru sayısına böl (cevaplanan değil)
+      p.canililkYuzdesi = Math.round((st.yapardim / Math.max(1, totalQCount)) * 100);
+      const totalAnswered = st.yapardim + st.yapmazdim;
       p.katilimYuzdesi = Math.round((totalAnswered / Math.max(1, totalQCount)) * 100);
     });
+
 
     playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
 
