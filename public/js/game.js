@@ -1237,7 +1237,10 @@ window.vote = function(type, el) {
       player_id: String(myPlayerId),
       room_id: roomCode,
       type
-    }, { onConflict: 'question_id,player_id,room_id' });
+    }, { onConflict: 'question_id,player_id,room_id' })
+      .then(({ error }) => { if (error) console.error('[vote] DB hata:', error); });
+  } else {
+    console.warn('[vote] atlandı — supabaseClient:', !!supabaseClient, 'currentQuestionId:', currentQuestionId);
   }
 };
 
