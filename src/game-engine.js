@@ -14,6 +14,10 @@ function shuffle(arr) {
 }
 
 export class GameEngine {
+  getDilemmasCount() {
+    return allDilemmas.length;
+  }
+
   async startGame(roomCode, questionCount) {
     const count = Math.min(questionCount || 10, allDilemmas.length);
 

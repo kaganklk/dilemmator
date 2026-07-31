@@ -75,6 +75,9 @@ async function fetchStats() {
       const data = await res.json();
       document.getElementById('s-players').textContent = data.players || 0;
       document.getElementById('s-rooms').textContent = data.rooms || 0;
+      if (data.dilemmas) {
+        document.getElementById('s-dilemmas').textContent = data.dilemmas;
+      }
     }
   } catch (e) { /* ignore */ }
 }
