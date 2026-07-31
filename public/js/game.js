@@ -1202,6 +1202,7 @@ function burst(wrap) {
 }
 
 window.vote = function(type, el) {
+  console.log('[vote] başladı', type, '| supabase:', !!supabaseClient, '| qId:', currentQuestionId);
   const like = document.getElementById('like-btn');
   const dislike = document.getElementById('dislike-btn');
   const likeWrap = document.getElementById('like-wrap');
@@ -1232,15 +1233,19 @@ window.vote = function(type, el) {
 
   // DB'ye kaydet
   if (supabaseClient && currentQuestionId) {
+    console.log('[vote] upsert gönderiliyor...');
     supabaseClient.from('question_ratings').upsert({
       question_id: String(currentQuestionId),
       player_id: String(myPlayerId),
       room_id: roomCode,
       type
     }, { onConflict: 'question_id,player_id,room_id' })
-      .then(({ error }) => { if (error) console.error('[vote] DB hata:', error); });
+      .then(({ data, error }) => {
+        if (error) console.error('[vote] DB hata:', error);
+        else console.log('[vote] DB OK ✓');
+      });
   } else {
-    console.warn('[vote] atlandı — supabaseClient:', !!supabaseClient, 'currentQuestionId:', currentQuestionId);
+    console.warn('[vote] ATLAIDI — supabaseClient:', !!supabaseClient, 'qId:', currentQuestionId);
   }
 };
 
