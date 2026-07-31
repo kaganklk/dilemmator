@@ -259,9 +259,10 @@ export class RoomManager {
 
     if (!room) return { error: 'Oda bulunamadı' };
 
-    // Tüm oyuncular disconnect olduysa odayı tamamen sil
+    // Tüm oyuncular disconnect olduysa ve oyun bitmişse (veya lobideyse) odayı sil
+    // NOT: Oyun oynanırken (playing/results) silme — sayfa yenileme gibi geçici kopukluklar oda silmemeli
     const activePlayers = (players || []).filter(p => p.connected !== false);
-    if (activePlayers.length === 0) {
+    if (activePlayers.length === 0 && (room.state === 'end' || room.state === 'lobby')) {
       await this.deleteRoom(code);
       return {
         room,
@@ -273,6 +274,7 @@ export class RoomManager {
         allLeft: true,
       };
     }
+
 
     // Eğer oda sahibi çıkmışsa ve odada halen biri varsa host haklarını devret!
     if (Number(room.hostId) === Number(playerId) && activePlayers.length > 0) {
