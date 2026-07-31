@@ -64,6 +64,11 @@ export default async function handler(req, res) {
     }
   }
 
+  let gameEndResults = null;
+  if (room.state === 'end') {
+    gameEndResults = await engine.getGameEndResults(cleanCode, room.questions);
+  }
+
   return res.status(200).json({
     success: true,
     code: room.code,
@@ -75,6 +80,7 @@ export default async function handler(req, res) {
     currentQuestion,
     answers,
     allAnswered,
-    qResults
+    qResults,
+    gameEndResults
   });
 }

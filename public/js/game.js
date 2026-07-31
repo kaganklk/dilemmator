@@ -554,7 +554,7 @@ async function showGameEnd(data) {
   
   // Kural: Ekrana bas ve BİR DAHA GÜNCELLEME (Realtime ve polling tetiklemeleri engellenir)
   if (gameEndScreenFrozen) {
-    console.log("[Oyun Bitti] Oyun sonu cevap tablosu çekildi, hesaplandı ve donduruldu. Yeni güncelleme yoksayıtıldı.");
+    console.log("[Oyun Bitti] Oyun sonu ekranı zaten donduruldu, yeni güncelleme yoksayıldı.");
     return;
   }
   if (isDuplicateEvent('state_game_end_scene') && document.getElementById('scene-end')?.classList.contains('active')) {
@@ -564,120 +564,10 @@ async function showGameEnd(data) {
   gameEndScreenFrozen = true;
   lastGameEndData = data || {};
   showScene('end');
+  // Server'dan gelen veriyi doğrudan göster — server zaten doğru hesaplıyor
   renderGameEndUI(lastGameEndData);
-
-  // Açılır açılmaz Supabase'deki answers tablosu ve odanın soru etiketlerini tek seferlik çek
-  let allAnswers = null;
-  let roomQuestions = null;
-  if (supabaseClient && roomCode) {
-    try {
-      const [ansRes, roomRes] = await Promise.all([
-        supabaseClient.from('answers').select('*').eq('room_code', roomCode),
-        supabaseClient.from('rooms').select('questions').eq('code', roomCode).maybeSingle()
-      ]);
-      if (!ansRes.error && ansRes.data && ansRes.data.length > 0) {
-        allAnswers = ansRes.data;
-      }
-      if (!roomRes.error && roomRes.data && Array.isArray(roomRes.data.questions)) {
-        roomQuestions = roomRes.data.questions;
-      }
-    } catch (err) {
-      console.error("Oyun bitti cevap verisi çekilemedi:", err);
-    }
-  }
-
-  // Çekilen veriden gerçek tagleri ('cani', 'paragoz', 'bencil') sayarak ödülleri adilce hesapla!
-  if (allAnswers && allAnswers.length > 0) {
-    const totalQCount = roomQuestions ? roomQuestions.length : parseInt(document.getElementById('question-count')?.value || '10', 10);
-    const playerStats = {};
-    const playersList = (lastGameEndData.players && lastGameEndData.players.length > 0 ? lastGameEndData.players : currentPlayers).map(p => ({
-      id: Number(p.id),
-      name: p.name || 'Anonim',
-      color: p.color || '#666',
-      canililkYuzdesi: 0
-    }));
-
-    playersList.forEach(p => { playerStats[p.id] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 }; });
-
-    // Server tarafıyla aynı: aynı (oyuncu + soru) kombinasyonu bir kez sayılsın
-    const uniqueAnswersMap = new Map();
-    for (const ans of allAnswers) {
-      uniqueAnswersMap.set(`${ans.player_id}_${ans.question_id}`, ans);
-    }
-    const deduplicatedAnswers = Array.from(uniqueAnswersMap.values());
-
-    deduplicatedAnswers.forEach(ans => {
-      const pid = Number(ans.player_id);
-      if (!playerStats[pid]) {
-        playerStats[pid] = { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
-        if (!playersList.some(p => p.id === pid)) {
-          playersList.push({
-            id: pid,
-            name: ans.player_name || 'Anonim',
-            color: ans.player_color || '#666',
-            canililkYuzdesi: 0
-          });
-        }
-      }
-      if (ans.answer === 'yapardim') {
-        playerStats[pid].yapardim++;
-        const qObj = (roomQuestions || []).find(q => String(q.id) === String(ans.question_id));
-        if (qObj && Array.isArray(qObj.tags)) {
-          if (qObj.tags.includes('cani')) playerStats[pid].cani++;
-          if (qObj.tags.includes('paragoz')) playerStats[pid].paragoz++;
-          if (qObj.tags.includes('bencil')) playerStats[pid].bencil++;
-        }
-      } else {
-        playerStats[pid].yapmazdim++;
-      }
-    });
-
-    playersList.forEach(p => {
-      const st = playerStats[p.id] || { yapardim: 0, yapmazdim: 0, cani: 0, paragoz: 0, bencil: 0 };
-      // Server tarafıyla aynı: toplam soru sayısına böl (cevaplanan değil)
-      p.canililkYuzdesi = Math.round((st.yapardim / Math.max(1, totalQCount)) * 100);
-      const totalAnswered = st.yapardim + st.yapmazdim;
-      p.katilimYuzdesi = Math.round((totalAnswered / Math.max(1, totalQCount)) * 100);
-    });
-
-
-    playersList.sort((a, b) => b.canililkYuzdesi - a.canililkYuzdesi);
-
-    const buildAward = (categoryKey) => {
-      let maxScore = 0;
-      playersList.forEach(p => {
-        const score = playerStats[p.id]?.[categoryKey] || 0;
-        if (score > maxScore) maxScore = score;
-      });
-      if (maxScore <= 0) return undefined;
-
-      const winners = playersList.filter(p => (playerStats[p.id]?.[categoryKey] || 0) === maxScore);
-      const nameText = winners.map(w => w.name || 'Anonim').join(winners.length === 2 ? ' & ' : ', ');
-      return {
-        name: nameText,
-        score: maxScore,
-        total: totalQCount,
-        color: winners[0]?.color || '#FF2D55',
-      };
-    };
-
-    const awards = {};
-    const caniAward = buildAward('cani');
-    if (caniAward) awards.enCani = caniAward;
-    const paragozAward = buildAward('paragoz');
-    if (paragozAward) awards.enParagoz = paragozAward;
-    const bencilAward = buildAward('bencil');
-    if (bencilAward) awards.enBencil = bencilAward;
-
-    lastGameEndData = {
-      players: playersList,
-      awards: awards
-    };
-
-    // Hesaplanan kesin verileri ekrana bas ve KESİNLİKLE bir daha güncelleme!
-    renderGameEndUI(lastGameEndData);
-  }
 }
+
 
 function renderGameEndUI(data) {
   if (!data) return;
@@ -1047,7 +937,8 @@ async function syncStateFromDatabase() {
       }
     } else if (data.state === 'end') {
       // Sayfa yenilendiğinde oda 'end' durumundaysa oyun sonu ekranını göster
-      showGameEnd(data);
+      // gameEndResults içinde server'ın hesapladığı doğru canililkYuzdesi var
+      showGameEnd(data.gameEndResults || data);
     }
   } catch (err) {
     console.error('Veritabanı state sync hatası:', err);
