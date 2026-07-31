@@ -1208,8 +1208,8 @@ window.vote = function(type, el) {
   const dislikeWrap = document.getElementById('dislike-wrap');
   const thanks = document.getElementById('vote-thanks');
 
-  const LIKE_FILTER    = 'grayscale(0) brightness(1.1) saturate(1.5)';
-  const DISLIKE_FILTER = 'grayscale(0) brightness(1.0) saturate(1.5) hue-rotate(300deg)';
+  const LIKE_FILTER    = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
+  const DISLIKE_FILTER = 'grayscale(1) brightness(0.3) sepia(1) hue-rotate(320deg) saturate(3)';
   const OFF_FILTER     = 'grayscale(1) brightness(0.35)';
 
   // Her ikisini sıfırla, seçileni renklendir
