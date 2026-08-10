@@ -147,18 +147,29 @@ window.handleJoin = async function() {
   btn.textContent = 'Katılınıyor...';
   btn.disabled = true;
 
+  // localStorage'da bu oda için kayıtlı player_id var mı kontrol et
+  const savedPlayerId = localStorage.getItem('playerId');
+  const savedRoomCode = localStorage.getItem('roomCode');
+  const isRejoining = savedPlayerId && savedRoomCode === code;
+
   try {
-    const res = await fetch('/api/join-room', {
+    // Eğer aynı oda için kayıtlı ID varsa rejoin-room kullan
+    const endpoint = isRejoining ? '/api/rejoin-room' : '/api/join-room';
+    const body = isRejoining
+      ? { code, playerId: savedPlayerId, name }
+      : { name, code, playerId: savedPlayerId }; // join-room da ID ile kontrol edebilsin
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, code })
+      body: JSON.stringify(body)
     });
     
     let data;
     try {
       data = await res.json();
     } catch (e) {
-      throw new Error('Sunucu ile bağlantı koptu veya yapılandıma hatası (500).');
+      throw new Error('Sunucu ile bağlantı koptu veya yapılandırma hatası (500).');
     }
 
     if (res.ok && data.type === 'room_joined') {

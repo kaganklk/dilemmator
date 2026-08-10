@@ -122,7 +122,7 @@ export class RoomManager {
     };
   }
 
-  async joinRoom(code, playerName, existingRoom = null, existingPlayers = null) {
+  async joinRoom(code, playerName, existingRoom = null, existingPlayers = null, incomingPlayerId = null) {
     const configErr = getSupabaseError();
     if (configErr) return { error: configErr };
 
@@ -142,8 +142,18 @@ export class RoomManager {
     if (!room) return { error: 'Oda bulunamadı veya kapandı.' };
     if (currentPlayers.length >= 15) return { error: 'Oda dolu (maks 15 kişi).' };
 
-    const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
-    const existing = currentPlayers.find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
+    // Önce player_id ile eşleşme dene (aynı kişi tekrar katılıyorsa)
+    let existing = null;
+    if (incomingPlayerId && !isNaN(Number(incomingPlayerId))) {
+      existing = currentPlayers.find(p => Number(p.id) === Number(incomingPlayerId));
+    }
+
+    // ID bulunamazsa isim ile dene
+    if (!existing) {
+      const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
+      existing = currentPlayers.find(p => p.name.toLowerCase().trim() === nameStr.toLowerCase().trim());
+    }
+
     if (existing) {
       if (!existing.connected) {
         await supabase.from('players').update({ connected: true }).eq('id', existing.id.toString());
@@ -160,6 +170,7 @@ export class RoomManager {
       };
     }
 
+    const nameStr = (playerName && playerName.trim()) ? playerName.trim() : 'Anonim';
     const playerId = generatePlayerId();
     const color = this.getPlayerColor(currentPlayers.length);
 
